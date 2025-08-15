@@ -29,7 +29,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Experience Section
               _buildSectionHeader(context, 'Experience'),
               const SizedBox(height: 16),

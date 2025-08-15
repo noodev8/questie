@@ -24,7 +24,6 @@ class AppTheme {
         seedColor: primaryGreen,
         brightness: Brightness.light,
         surface: warmWhite,
-        background: warmWhite,
         primary: primaryGreen,
         secondary: accentBlue,
         tertiary: softPeach,
@@ -53,7 +52,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: mediumGray.withOpacity(0.3), width: 1),
+          side: BorderSide(color: mediumGray.withValues(alpha: 0.3), width: 1),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       ),
@@ -133,11 +132,10 @@ class AppTheme {
       colorScheme: baseTheme.colorScheme.copyWith(
         primary: calmPrimary,
         surface: calmSurface,
-        background: calmBackground,
         secondary: calmAccent,
       ),
       scaffoldBackgroundColor: calmBackground,
-      cardTheme: baseTheme.cardTheme?.copyWith(
+      cardTheme: baseTheme.cardTheme.copyWith(
         color: calmSurface,
         margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 12), // More spacing
       ),

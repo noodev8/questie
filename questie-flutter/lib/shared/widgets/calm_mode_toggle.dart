@@ -22,9 +22,9 @@ class CalmModeToggle extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isCalmMode 
-                    ? const Color(0xFF6B8E6B).withOpacity(0.2)
-                    : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: isCalmMode
+                    ? const Color(0xFF6B8E6B).withValues(alpha: 0.2)
+                    : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
