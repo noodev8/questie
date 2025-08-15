@@ -10,12 +10,14 @@ class AuthState {
   final bool isAuthenticated;
   final Map<String, dynamic>? user;
   final String? error;
+  final String? registrationEmail; // Email of successfully registered user
 
   const AuthState({
     this.isLoading = false,
     this.isAuthenticated = false,
     this.user,
     this.error,
+    this.registrationEmail,
   });
 
   AuthState copyWith({
@@ -23,12 +25,14 @@ class AuthState {
     bool? isAuthenticated,
     Map<String, dynamic>? user,
     String? error,
+    String? registrationEmail,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       user: user ?? this.user,
       error: error,
+      registrationEmail: registrationEmail,
     );
   }
 
@@ -88,6 +92,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(error: null);
   }
 
+  // Clear registration email (after showing popup)
+  void clearRegistrationEmail() {
+    state = state.copyWith(registrationEmail: null);
+  }
+
   // Register new user
   Future<bool> register({
     required String email,
@@ -107,6 +116,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(
           isLoading: false,
           error: null,
+          registrationEmail: email, // Store the email for popup
         );
         return true;
       } else {

@@ -130,7 +130,7 @@ class AuthService {
       });
 
       final data = _parseResponse(response);
-      
+
       if (data['return_code'] == 'SUCCESS') {
         return {
           'success': true,

@@ -77,24 +77,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final success = await ref.read(authProvider.notifier).register(
+    await ref.read(authProvider.notifier).register(
       email: _emailController.text.trim(),
       displayName: _displayNameController.text.trim(),
       password: _passwordController.text,
     );
 
-    if (success && mounted) {
-      // Navigate to email verification screen
-      context.pushReplacement('/email-verification', extra: {
-        'email': _emailController.text.trim(),
-      });
-    }
+    // The popup will be shown automatically by the main app listener
+    // if registration was successful
   }
+
+
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final theme = Theme.of(context);
+
+    // Listen for auth state changes to show errors
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next.error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error!),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
+      }
+    });
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
