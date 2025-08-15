@@ -1,0 +1,16 @@
+CREATE TABLE app_user (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255),
+	  phone varchar(20),
+	  display_name varchar(100),
+	  password_hash varchar(255),
+	  is_anonymous BOOLEAN DEFAULT true,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      email_verified BOOLEAN DEFAULT FALSE,
+	  auth_token varchar(255),
+      auth_token_expires TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX idx_app_user_display_name ON app_user(display_name);
+  CREATE INDEX idx_app_user_email ON app_user(email);

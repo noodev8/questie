@@ -1,0 +1,190 @@
+
+-- =====================================================================================
+-- USER MANAGEMENT
+-- =====================================================================================
+
+-- Standard app user table (from new_app_user_table.txt)
+CREATE TABLE app_user (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255),
+    phone VARCHAR(20),
+    display_name VARCHAR(100),
+    password_hash VARCHAR(255),
+    is_anonymous BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    email_verified BOOLEAN DEFAULT FALSE,
+    auth_token VARCHAR(255),
+    auth_token_expires TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_app_user_display_name ON app_user(display_name);
+CREATE INDEX idx_app_user_email ON app_user(email);
+CREATE INDEX idx_app_user_auth_token ON app_user(auth_token);
+CREATE INDEX idx_app_user_last_active ON app_user(last_active_at);
+
+-- =====================================================================================
+-- QUEST CATEGORIES
+-- =====================================================================================
+
+-- Quest categories (Cafe, Exercise, Kindness, Culture, Nature, Learning)
+CREATE TABLE quest_category (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_quest_category_name ON quest_category(name);
+CREATE INDEX idx_quest_category_active ON quest_category(is_active);
+
+-- =====================================================================================
+-- QUESTS
+-- =====================================================================================
+
+-- Individual quests with difficulty levels
+CREATE TABLE quest (
+    id SERIAL PRIMARY KEY,
+    category_id INTEGER, -- Links to quest_category.id (no FK constraint)
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    difficulty_level VARCHAR(20) NOT NULL, -- 'easy', 'medium', 'hard'
+    points INTEGER DEFAULT 0,
+    estimated_duration_minutes INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_quest_category ON quest(category_id);
+CREATE INDEX idx_quest_difficulty ON quest(difficulty_level);
+CREATE INDEX idx_quest_active ON quest(is_active);
+CREATE INDEX idx_quest_points ON quest(points);
+
+-- =====================================================================================
+-- USER QUEST INTERACTIONS
+-- =====================================================================================
+
+-- User quest assignments (daily/weekly quest assignments)
+CREATE TABLE user_quest_assignment (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER, -- Links to app_user.id (no FK constraint)
+    quest_id INTEGER, -- Links to quest.id (no FK constraint)
+    assignment_type VARCHAR(20) NOT NULL, -- 'daily', 'weekly'
+    assigned_date DATE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_completed BOOLEAN DEFAULT false,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_quest_user ON user_quest_assignment(user_id);
+CREATE INDEX idx_user_quest_quest ON user_quest_assignment(quest_id);
+CREATE INDEX idx_user_quest_date ON user_quest_assignment(assigned_date);
+CREATE INDEX idx_user_quest_type ON user_quest_assignment(assignment_type);
+CREATE INDEX idx_user_quest_completed ON user_quest_assignment(is_completed);
+CREATE INDEX idx_user_quest_expires ON user_quest_assignment(expires_at);
+
+-- User quest completions (detailed completion records)
+CREATE TABLE user_quest_completion (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER, -- Links to app_user.id (no FK constraint)
+    quest_id INTEGER, -- Links to quest.id (no FK constraint)
+    assignment_id INTEGER, -- Links to user_quest_assignment.id (no FK constraint)
+    completion_notes TEXT,
+    points_earned INTEGER DEFAULT 0,
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_completion_user ON user_quest_completion(user_id);
+CREATE INDEX idx_completion_quest ON user_quest_completion(quest_id);
+CREATE INDEX idx_completion_assignment ON user_quest_completion(assignment_id);
+CREATE INDEX idx_completion_date ON user_quest_completion(completed_at);
+CREATE INDEX idx_completion_location ON user_quest_completion(latitude, longitude);
+
+-- =====================================================================================
+-- BADGE SYSTEM
+-- =====================================================================================
+
+-- Available badges users can earn
+CREATE TABLE badge (
+    id SERIAL PRIMARY KEY,
+    category_id INTEGER, -- Links to quest_category.id (no FK constraint)
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    icon VARCHAR(10),
+    requirement_type VARCHAR(50) NOT NULL, -- 'quest_count', 'streak', 'points', 'special'
+    requirement_value INTEGER, -- Number needed (e.g., 5 quests, 7 day streak)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_badge_category ON badge(category_id);
+CREATE INDEX idx_badge_requirement ON badge(requirement_type);
+CREATE INDEX idx_badge_tier ON badge(badge_tier);
+CREATE INDEX idx_badge_active ON badge(is_active);
+
+-- User earned badges
+CREATE TABLE user_badge (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER, -- Links to app_user.id (no FK constraint)
+    badge_id INTEGER, -- Links to badge.id (no FK constraint)
+    earned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    progress_value INTEGER DEFAULT 0, -- Current progress toward badge
+    is_completed BOOLEAN DEFAULT false
+);
+
+CREATE INDEX idx_user_badge_user ON user_badge(user_id);
+CREATE INDEX idx_user_badge_badge ON user_badge(badge_id);
+CREATE INDEX idx_user_badge_earned ON user_badge(earned_at);
+CREATE INDEX idx_user_badge_completed ON user_badge(is_completed);
+
+-- =====================================================================================
+-- USER PROGRESS & STATS
+-- =====================================================================================
+
+-- User statistics and progress tracking
+CREATE TABLE user_stats (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER, -- Links to app_user.id (no FK constraint)
+    total_quests_completed INTEGER DEFAULT 0,
+    total_points INTEGER DEFAULT 0,
+    current_streak_days INTEGER DEFAULT 0,
+    longest_streak_days INTEGER DEFAULT 0,
+    last_quest_completed_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_stats_user ON user_stats(user_id);
+CREATE INDEX idx_user_stats_level ON user_stats(level);
+CREATE INDEX idx_user_stats_streak ON user_stats(current_streak_days);
+CREATE INDEX idx_user_stats_points ON user_stats(total_points_earned);
+
+-- Daily streak tracking
+CREATE TABLE user_daily_activity (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER, -- Links to app_user.id (no FK constraint)
+    activity_date DATE NOT NULL,
+    quests_completed INTEGER DEFAULT 0,
+    points_earned INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_daily_activity_user ON user_daily_activity(user_id);
+CREATE INDEX idx_daily_activity_date ON user_daily_activity(activity_date);
+CREATE UNIQUE INDEX idx_daily_activity_user_date ON user_daily_activity(user_id, activity_date);
+
+-- =====================================================================================
+-- SYSTEM CONFIGURATION
+-- =====================================================================================
+
+-- App configuration settings
+CREATE TABLE app_config (
+    id SERIAL PRIMARY KEY,
+    config_key VARCHAR(100) NOT NULL,
+    config_value TEXT,
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX idx_app_config_key ON app_config(config_key);

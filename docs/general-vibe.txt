@@ -1,0 +1,50 @@
+
+MAIN PARAGRAPH ===================================================================================================================================================================================
+
+Questie is a gamified lifestyle app that transforms your routine into an adventure with daily or weekly “quests” — small, fun activities that encourage you to explore your local area, meet people, and try new things. From visiting a cozy coffee shop to taking a mindful walk in the park, each quest promotes discovery, social connection, and healthy habits. Earn badges, track streaks, and share your completed quests with friends, making everyday life fresh, engaging, and rewarding.
+
+
+BIGGER DESCRIPTION ================================================================================================================================================================================
+
+Questie – Turn everyday life into an adventure
+
+Questie gives you daily or weekly “quests” — small, fun activities designed to help you explore your local area, meet people, and feel good.
+
+One day you might be visiting a cozy coffee shop you’ve never tried, the next you’re taking a mindful 20-minute walk in the park. Each quest is a gentle nudge toward connection, discovery, and wellbeing.
+
+Whether you’re looking to make new memories, get moving, or simply break up your routine, Questie keeps life fresh and exciting. Complete quests, earn rewards, and watch your real-world adventure unfold.
+
+Features:
+
+Fresh quests every day AND week
+
+Activities for socializing, wellness, and local exploration
+
+Earn badges and track your streaks
+
+Share your completed quests with friends
+
+With Questie, every day is a chance to say yes to something new.
+
+
+BENEFITS ===========================================================================================================================================================================================
+
+Local Discovery: Encourages exploration of neighborhood businesses
+Social Connection: Promotes community engagement and kindness
+Healthy Habits: Motivates outdoor activities and new experiences
+Gamified Fun: Makes local exploration feel like a game
+Personal Growth: Builds confidence through small achievements
+
+QUESTS MODEL BREAKDOWN ========================================================================================================================================================================
+
+quest - a single event (example: going to a coffee shop )
+Category - each quest must have a category ( examples: coffee shop would be in the 'cafe' category while going for a walk would be 'exercise' )
+Level - how hard is each quest ( example going for a walk is easy but complimenting a stranger is hard )
+Badge - the user can earn 'badges' for completing a number of quests within the same category ( example completing a number of 'cafe' quests would give the user the 'Coffee shop' badge )
+
+
+
+TECH STACK ===============================================================================
+frontend - flutter
+server /API's - node and express.js
+database - postgres

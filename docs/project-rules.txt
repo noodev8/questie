@@ -1,0 +1,103 @@
+==============================================================================
+= Tech Stack
+==============================================================================
+Flutter - Mobile App
+Node.js - Server
+Express.js - Server
+Resend - Emails
+JWT - Auth
+BCrypt - Authentication
+Crypt - Token
+Next.js - Website
+React - Website
+
+
+==============================================================================
+= Project Folder Structure
+==============================================================================
+questie
+	questie-flutter/
+	questie-server/
+	docs/
+
+
+
+==============================================================================
+= API Development Rules
+==============================================================================
+- All routes use POST method - Consistent HTTP method for all endpoints
+- Always use/return simplified JSON
+- All routes return "return_code. Every response must include an UPPERCASE machine-readable "return_code" field that is either "SUCCESS" or an error type
+- Additional parameters allowed. Routes can return any other parameters but must always include "return_code"
+- Always use lowercase. All files must use lowercase filenames
+- Descriptive names. File names should clearly indicate their purpose
+- Header format required. All API route files must include a standardized header as below template
+---
+=======================================================================================================================================
+API Route: [route_name]
+=======================================================================================================================================
+Method: POST
+Purpose: [Clear description of what this route does]
+=======================================================================================================================================
+Request Payload:
+{
+  "field1": "value1",                  // type, required/optional
+  "field2": "value2"                   // type, required/optional
+}
+
+Success Response:
+{
+  "return_code": "SUCCESS",
+  "field1": "value1",                  // type, description
+  "field2": "value2"                   // type, description
+}
+=======================================================================================================================================
+Return Codes:
+"SUCCESS"
+"ERROR_TYPE_1"
+"ERROR_TYPE_2"
+"SERVER_ERROR"
+=======================================================================================================================================
+---
+
+==============================================================================
+= .env file
+==============================================================================
+- Use .env file. Store all environment variables in a .env file
+- Use environment variables. Access environment variables using process.env.VARIABLE_NAME
+- Single env file. Always have only one .env file and no others. No separate .env files for local or dev. Just a single .env file at project root
+
+==============================================================================
+= Flutter Dart Screen Rules
+==============================================================================
+- Always provide a brief description of the screen at the top of the file, explaining what the screen does.
+- Always use UI and widget code inline in the screen file itself
+- Do not centralise or access UI code with a separate file
+- Each screen has its own UI design code
+
+==============================================================================
+= General Coding Standards
+==============================================================================
+- Meaningful names. Use descriptive variable and function names
+- Error handling. Implement comprehensive error handling for all operations
+- Comments. Add comments for logic and business rules
+- No hardcoded values. Always use configuration files or environment variables
+
+==============================================================================
+= Database Rules
+==============================================================================
+- Use parameterized queries. Prevent SQL injection attacks
+- Connection pooling. Use connection pools for database connections
+- Transaction management. Use transactions for multi-step operations
+- Connection. Put and use all database connection details in .env file. Never hard code these details
+- Postgres. Use postgres directly without intermediary
+
+==============================================================================
+= Security Rules
+==============================================================================
+- Input validation. Validate and sanitize all user inputs
+- Rate limiting. Validate and sanitize all user inputs
+- CORS configuration. Properly configure Cross-Origin Resource Sharing
+- Password security. Use bcrypt for password hashing
+- Token expiration - Implement appropriate token expiration times
+
