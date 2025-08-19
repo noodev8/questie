@@ -373,11 +373,10 @@ router.get('/:questId', authMiddleware.requireAuth, questLimiter, async (req, re
 
     // Check if user has this quest assigned (daily or weekly)
     const today = new Date().toISOString().split('T')[0];
-    const weekStart = new Date();
-    const dayOfWeek = weekStart.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    weekStart.setDate(weekStart.getDate() - daysToMonday);
+    const weekStart = getMondayOfWeek();
     const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    console.log(`Quest details lookup - User: ${userId}, Quest: ${questId}, Today: ${today}, WeekStart: ${weekStartStr}`);
 
     // Check for daily assignment
     let assignment = null;
@@ -389,6 +388,7 @@ router.get('/:questId', authMiddleware.requireAuth, questLimiter, async (req, re
       LIMIT 1
     `;
     let result = await query(dailyAssignmentQuery, [userId, parseInt(questId), today]);
+    console.log(`Daily assignment query result:`, result.rows);
 
     if (result.rows.length === 0) {
       // Check for weekly assignment
@@ -400,10 +400,14 @@ router.get('/:questId', authMiddleware.requireAuth, questLimiter, async (req, re
         LIMIT 1
       `;
       result = await query(weeklyAssignmentQuery, [userId, parseInt(questId), weekStartStr]);
+      console.log(`Weekly assignment query result:`, result.rows);
     }
 
     if (result.rows.length > 0) {
       assignment = result.rows[0];
+      console.log(`Assignment found:`, assignment);
+    } else {
+      console.log(`No assignment found for user ${userId} and quest ${questId}`);
     }
 
     res.json({

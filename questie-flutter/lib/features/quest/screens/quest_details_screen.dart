@@ -32,7 +32,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
         _error = null;
       });
 
+      print('Loading quest details for quest ID: ${widget.questId}'); // Debug log
       final quest = await QuestService.getQuestDetails(widget.questId);
+      print('Quest details received: $quest'); // Debug log
 
       setState(() {
         _quest = quest;
@@ -84,7 +86,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true); // Return true to indicate completion
         }
       } else {
         if (mounted) {

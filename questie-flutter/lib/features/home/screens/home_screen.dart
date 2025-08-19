@@ -2,14 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/router/app_router.dart';
 import '../widgets/daily_quest_card.dart';
-import '../widgets/weekly_quests_list.dart';
+import '../widgets/weekly_quests_section.dart';
 import '../widgets/quick_stats_card.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  int _refreshCounter = 0;
+
+  void _onQuestCompleted() {
+    // Trigger a rebuild to refresh quest data
+    setState(() {
+      _refreshCounter++;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -25,7 +39,10 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // Daily Quest
-              const DailyQuestCard(),
+              DailyQuestCard(
+                key: ValueKey('daily_quest_$_refreshCounter'),
+                onQuestCompleted: _onQuestCompleted,
+              ),
               const SizedBox(height: 32),
 
               // Divider
@@ -45,7 +62,10 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 32),
 
               // Weekly Quests (5 tasks)
-              const WeeklyQuestsList(),
+              WeeklyQuestsSection(
+                key: ValueKey('weekly_quests_$_refreshCounter'),
+                onQuestCompleted: _onQuestCompleted,
+              ),
               const SizedBox(height: 32),
               
               // Quick Actions

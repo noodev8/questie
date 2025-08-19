@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../../core/router/app_router.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../services/quest_service.dart';
 
 class WeeklyQuestsSection extends StatefulWidget {
-  const WeeklyQuestsSection({super.key});
+  final VoidCallback? onQuestCompleted;
+
+  const WeeklyQuestsSection({
+    super.key,
+    this.onQuestCompleted,
+  });
 
   @override
   State<WeeklyQuestsSection> createState() => _WeeklyQuestsSectionState();
@@ -167,6 +173,11 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         // Reload weekly quests to reflect the completion
         await _loadWeeklyQuests();
 
+        // Call the callback to notify parent widget
+        if (widget.onQuestCompleted != null) {
+          widget.onQuestCompleted!();
+        }
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -204,7 +215,7 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: 0,
@@ -227,7 +238,7 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: 0,
@@ -270,210 +281,73 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
   }
 
   Widget _buildQuestsCard(BuildContext context, List<Map<String, dynamic>> quests) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFFFDF2E9), // Soft beige
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: const Color(0xFF6B8E6B).withOpacity(0.08), // Green shadow
-            blurRadius: 32,
-            offset: const Offset(0, 16),
-            spreadRadius: 4,
-          ),
-        ],
-        border: Border.all(
-          color: const Color(0xFF6B8E6B).withOpacity(0.15), // Green border
-          width: 1.5,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFFE8F5E8), // Light green
-                        const Color(0xFFFDF2E9), // Soft beige
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: const Color(0xFF6B8E6B).withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6B8E6B).withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.calendar_month,
-                        color: const Color(0xFF6B8E6B),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Weekly Challenges',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: const Color(0xFF6B8E6B),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFFE8F5E8), // Light green
-                        const Color(0xFFFDF2E9), // Soft beige
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6B8E6B).withOpacity(0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    '🌟',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFFE8F5E8), // Light green
+                const Color(0xFFFDF2E9), // Soft beige
               ],
             ),
-            const SizedBox(height: 20),
-            
-            Text(
-              'Complete 5 challenges this week',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                height: 1.3,
-              ),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: const Color(0xFF6B8E6B).withValues(alpha: 0.3),
+              width: 1.5,
             ),
-            const SizedBox(height: 12),
-            
-            Text(
-              'Mix of social, wellness, and discovery activities to enrich your week.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-                height: 1.5,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6B8E6B).withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // Reroll button (show if any quest can be rerolled)
-            if (quests.any((q) => q['can_reroll'] == true)) ...[
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => _showRerollDialog(context),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Reroll All Quests'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-            ] else ...[
-              const SizedBox(height: 4),
             ],
-            
-            // Progress indicator
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Progress: 2 of 5 completed',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      '40%',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.secondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.calendar_month,
+                color: const Color(0xFF6B8E6B),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Weekly Challenges',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF6B8E6B),
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: 0.4,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.secondary,
+              ),
+              const SizedBox(width: 12),
+              if (quests.any((q) => q['can_reroll'] == true)) ...[
+                TextButton.icon(
+                  onPressed: () => _showRerollDialog(context),
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: const Text('Reroll'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF6B8E6B),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 24),
-            
-            // Weekly quests list
-            ...quests.asMap().entries.map((entry) {
-              final index = entry.key;
-              final quest = entry.value;
-              return Padding(
-                padding: EdgeInsets.only(bottom: index < quests.length - 1 ? 16 : 0),
-                child: _buildWeeklyQuestItem(context, quest),
-              );
-            }),
-            
-            const SizedBox(height: 24),
-            
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  // TODO: Navigate to weekly quests details
-                },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Theme.of(context).colorScheme.secondary),
-                  foregroundColor: Theme.of(context).colorScheme.secondary,
-                ),
-                child: const Text('View All Weekly Challenges'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 20),
+
+        // Quest List
+        ...quests.map((quest) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildWeeklyQuestItem(context, quest),
+        )),
+      ],
     );
   }
 
@@ -482,73 +356,85 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
     final categoryIcon = QuestService.getCategoryIcon(quest['category'] ?? '');
     final duration = QuestService.formatDuration(quest['estimated_duration_minutes']);
 
-    return InkWell(
-      onTap: () {
+    return GestureDetector(
+      onTap: () async {
         final questId = quest['quest_id']?.toString();
         if (questId != null && questId.isNotEmpty) {
           print('Navigating to quest details: $questId'); // Debug log
-          AppRouter.goToQuestDetails(context, questId);
+          final result = await context.push('/quest/$questId');
+          if (result == true && widget.onQuestCompleted != null) {
+            widget.onQuestCompleted!();
+          }
         } else {
           print('Quest ID is null or empty: ${quest['quest_id']}'); // Debug log
         }
       },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
+        child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isCompleted 
-              ? Colors.green[50]
-              : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              isCompleted
+                ? const Color(0xFFE8F5E8) // Light green when completed
+                : const Color(0xFFFDF2E9), // Soft beige when in progress
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+              spreadRadius: 0,
+            ),
+            BoxShadow(
+              color: const Color(0xFF6B8E6B).withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+              spreadRadius: 2,
+            ),
+          ],
           border: Border.all(
-            color: isCompleted 
-                ? Colors.green[200]!
-                : Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            color: isCompleted
+              ? const Color(0xFF6B8E6B).withValues(alpha: 0.3)
+              : const Color(0xFF6B8E6B).withValues(alpha: 0.1),
+            width: 1,
           ),
         ),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                gradient: isCompleted
-                    ? LinearGradient(
-                        colors: [Colors.green[100]!, Colors.green[50]!],
-                      )
-                    : LinearGradient(
-                        colors: [
-                          Theme.of(context).colorScheme.primary.withOpacity(0.15),
-                          Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                        ],
-                      ),
+                gradient: LinearGradient(
+                  colors: isCompleted
+                      ? [Colors.green[100]!, Colors.green[50]!]
+                      : [const Color(0xFFE8F5E8), const Color(0xFFFDF2E9)],
+                ),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isCompleted
-                      ? Colors.green[300]!
-                      : Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                  width: 1.5,
+                      ? Colors.green.withValues(alpha: 0.3)
+                      : const Color(0xFF6B8E6B).withValues(alpha: 0.2),
+                  width: 1,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isCompleted
-                        ? Colors.green[200]!.withOpacity(0.4)
-                        : Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: isCompleted
-                  ? Icon(
-                      Icons.check_circle,
-                      color: Colors.green[700],
-                      size: 22,
-                    )
-                  : Text(
-                      categoryIcon,
-                      style: const TextStyle(fontSize: 18),
-                    ),
+              child: Center(
+                child: isCompleted
+                    ? Icon(
+                        Icons.check_circle,
+                        color: Colors.green[700],
+                        size: 22,
+                      )
+                    : Text(
+                        categoryIcon,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+              ),
             ),
             const SizedBox(width: 16),
             
@@ -561,10 +447,10 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                       decoration: isCompleted ? TextDecoration.lineThrough : null,
-                      color: isCompleted ? Colors.grey[600] : null,
+                      color: isCompleted ? Colors.grey[600] : Colors.grey[800],
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
 
                   Row(
                     children: [
@@ -579,34 +465,13 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
                           ],
                         ),
                       ),
-                      if (!isCompleted) ...[
-                        IconButton(
-                          onPressed: () => _showCompleteQuestDialog(context, quest),
-                          icon: const Icon(Icons.check_circle_outline),
-                          iconSize: 20,
-                          color: Theme.of(context).colorScheme.primary,
-                          tooltip: 'Mark as completed',
-                        ),
-                      ],
+
                     ],
                   ),
                 ],
               ),
             ),
-            
-            if (isCompleted) ...[
-              Icon(
-                Icons.check_circle,
-                color: Colors.green[600],
-                size: 20,
-              ),
-            ] else ...[
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey[400],
-                size: 20,
-              ),
-            ],
+
           ],
         ),
       ),
@@ -617,7 +482,7 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

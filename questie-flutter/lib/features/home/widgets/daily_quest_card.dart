@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../../core/router/app_router.dart';
+import 'package:go_router/go_router.dart';
 import '../../../services/quest_service.dart';
 
 class DailyQuestCard extends StatefulWidget {
-  const DailyQuestCard({super.key});
+  final VoidCallback? onQuestCompleted;
+
+  const DailyQuestCard({
+    super.key,
+    this.onQuestCompleted,
+  });
 
   @override
   State<DailyQuestCard> createState() => _DailyQuestCardState();
@@ -166,6 +171,11 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
       if (result != null) {
         // Reload daily quest to reflect the completion
         await _loadDailyQuest();
+
+        // Call the callback to notify parent widget
+        if (widget.onQuestCompleted != null) {
+          widget.onQuestCompleted!();
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -399,8 +409,23 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: null,
-                  child: const Text('Completed'),
+                  onPressed: () async {
+                    final questId = quest['quest_id']?.toString();
+                    if (questId != null && questId.isNotEmpty) {
+                      print('Daily quest (completed) - Navigating to quest details: $questId'); // Debug log
+                      final result = await context.push('/quest/$questId');
+                      if (result == true && widget.onQuestCompleted != null) {
+                        widget.onQuestCompleted!();
+                      }
+                    } else {
+                      print('Daily quest (completed) - Quest ID is null or empty: ${quest['quest_id']}'); // Debug log
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[100],
+                    foregroundColor: Colors.green[700],
+                  ),
+                  child: const Text('View Details'),
                 ),
               ),
             ] else ...[
@@ -409,11 +434,14 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final questId = quest['quest_id']?.toString();
                         if (questId != null && questId.isNotEmpty) {
                           print('Daily quest - Navigating to quest details: $questId'); // Debug log
-                          AppRouter.goToQuestDetails(context, questId);
+                          final result = await context.push('/quest/$questId');
+                          if (result == true && widget.onQuestCompleted != null) {
+                            widget.onQuestCompleted!();
+                          }
                         } else {
                           print('Daily quest - Quest ID is null or empty: ${quest['quest_id']}'); // Debug log
                         }
@@ -443,7 +471,7 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
