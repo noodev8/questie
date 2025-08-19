@@ -54,6 +54,149 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
     return _buildQuestCard(context, _dailyQuest!);
   }
 
+  Future<void> _showRerollDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reroll Daily Quest'),
+        content: const Text(
+          'Are you sure you want to reroll your daily quest? You can only do this once per day and will get a different quest.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reroll'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _rerollDailyQuest();
+    }
+  }
+
+  Future<void> _rerollDailyQuest() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final newQuest = await QuestService.rerollDailyQuest();
+
+      if (newQuest != null) {
+        setState(() {
+          _dailyQuest = newQuest;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Daily quest rerolled successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to reroll quest. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showCompleteQuestDialog(BuildContext context, Map<String, dynamic> quest) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Complete Quest'),
+        content: Text('Are you sure you want to mark "${quest['title']}" as completed?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _completeQuest(quest);
+    }
+  }
+
+  Future<void> _completeQuest(Map<String, dynamic> quest) async {
+    try {
+      final result = await QuestService.completeQuest(
+        quest['assignment_id'],
+        completionNotes: 'Completed from daily quest card',
+      );
+
+      if (result != null) {
+        // Reload daily quest to reflect the completion
+        await _loadDailyQuest();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Daily quest completed successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to complete quest. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildLoadingCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -228,24 +371,68 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
 
             Row(
               children: [
-                _buildQuestTag(context, Icons.category_outlined, quest['category'] ?? 'Quest'),
-                const SizedBox(width: 12),
-                _buildQuestTag(context, Icons.schedule_outlined, duration),
-                const SizedBox(width: 12),
-                _buildQuestTag(context, Icons.star_outline, '${quest['points'] ?? 0} pts'),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      _buildQuestTag(context, Icons.category_outlined, quest['category'] ?? 'Quest'),
+                      _buildQuestTag(context, Icons.schedule_outlined, duration),
+                      _buildQuestTag(context, Icons.star_outline, '${quest['points'] ?? 0} pts'),
+                    ],
+                  ),
+                ),
+                if (!isCompleted) ...[
+                  IconButton(
+                    onPressed: () => _showCompleteQuestDialog(context, quest),
+                    icon: const Icon(Icons.check_circle_outline),
+                    iconSize: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                    tooltip: 'Mark as completed',
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 24),
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isCompleted
-                    ? null
-                    : () => AppRouter.goToQuestDetails(context, quest['quest_id']?.toString() ?? ''),
-                child: Text(isCompleted ? 'Completed' : 'Start Quest'),
+            if (isCompleted) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: null,
+                  child: const Text('Completed'),
+                ),
               ),
-            ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final questId = quest['quest_id']?.toString();
+                        if (questId != null && questId.isNotEmpty) {
+                          print('Daily quest - Navigating to quest details: $questId'); // Debug log
+                          AppRouter.goToQuestDetails(context, questId);
+                        } else {
+                          print('Daily quest - Quest ID is null or empty: ${quest['quest_id']}'); // Debug log
+                        }
+                      },
+                      child: const Text('Start Quest'),
+                    ),
+                  ),
+                  if (quest['can_reroll'] == true) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _showRerollDialog(context),
+                        child: const Text('Reroll'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ],
         ),
       ),

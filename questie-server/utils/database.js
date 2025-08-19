@@ -225,6 +225,44 @@ const questManager = {
     return result.rows[0];
   },
 
+  // Get random quest by difficulty for specific user (ensures different users get different quests)
+  async getRandomQuestByDifficultyForUser(userId, difficulty, excludeQuestIds = []) {
+    let excludeClause = '';
+    let params = [difficulty, userId];
+
+    if (excludeQuestIds.length > 0) {
+      excludeClause = `AND q.id NOT IN (${excludeQuestIds.map((_, i) => `$${i + 3}`).join(',')})`;
+      params = params.concat(excludeQuestIds);
+    }
+
+    // Use user ID as seed for consistent randomization per user per day
+    const text = `
+      SELECT q.id, q.category_id, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM quest q
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE q.is_active = true AND qc.is_active = true
+      AND q.difficulty_level = $1 ${excludeClause}
+      ORDER BY (q.id * $2 * EXTRACT(DOY FROM CURRENT_DATE)) % 1000
+      LIMIT 1
+    `;
+    const result = await query(text, params);
+    return result.rows[0];
+  },
+
+  // Get quest by ID
+  async getQuestById(questId) {
+    const text = `
+      SELECT q.id, q.category_id, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM quest q
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE q.id = $1 AND q.is_active = true AND qc.is_active = true
+    `;
+    const result = await query(text, [questId]);
+    return result.rows[0];
+  },
+
   // Get user's current daily quest
   async getUserDailyQuest(userId, date = new Date()) {
     const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format

@@ -2,18 +2,162 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/quest_service.dart';
 
-class QuestDetailsScreen extends ConsumerWidget {
+class QuestDetailsScreen extends ConsumerStatefulWidget {
   final String questId;
-  
+
   const QuestDetailsScreen({
     super.key,
     required this.questId,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Mock quest data - in real app this would come from a provider
-    final quest = _getMockQuest(questId);
+  ConsumerState<QuestDetailsScreen> createState() => _QuestDetailsScreenState();
+}
+
+class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
+  Map<String, dynamic>? _quest;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadQuestDetails();
+  }
+
+  Future<void> _loadQuestDetails() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final quest = await QuestService.getQuestDetails(widget.questId);
+
+      setState(() {
+        _quest = quest;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _completeQuest() async {
+    if (_quest == null) return;
+
+    final assignment = _quest!['assignment'];
+    if (assignment == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This quest is not currently assigned to you.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (assignment['is_completed'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This quest is already completed.'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final result = await QuestService.completeQuest(
+        assignment['assignment_id'],
+        completionNotes: 'Completed via quest details screen',
+      );
+
+      if (result != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quest completed successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to complete quest. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Quest Details'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_error != null || _quest == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Quest Details'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load quest details',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error ?? 'Unknown error occurred',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadQuestDetails,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final quest = _quest!;
     
     return Scaffold(
       body: CustomScrollView(
@@ -35,10 +179,9 @@ class QuestDetailsScreen extends ConsumerWidget {
                   ),
                 ),
                 child: Center(
-                  child: Icon(
-                    quest['icon'] as IconData,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    QuestService.getCategoryIcon(quest['category'] ?? ''),
+                    style: const TextStyle(fontSize: 48),
                   ),
                 ),
               ),
@@ -59,7 +202,7 @@ class QuestDetailsScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      quest['type'] as String,
+                      '${quest['difficulty']?.toString().toUpperCase() ?? 'QUEST'} QUEST',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w600,
@@ -67,20 +210,20 @@ class QuestDetailsScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Quest title
                   Text(
-                    quest['title'] as String,
+                    quest['title'] ?? 'Quest Title',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Quest description
                   Text(
-                    quest['description'] as String,
+                    quest['description'] ?? 'Complete this quest to earn points and build your streak.',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.grey[600],
                       height: 1.6,
@@ -92,10 +235,10 @@ class QuestDetailsScreen extends ConsumerWidget {
                   _buildQuestDetails(context, quest),
                   const SizedBox(height: 32),
                   
-                  // Tips section
-                  _buildTipsSection(context, quest['tips'] as List<String>),
+                  // Tips section (generic tips for now)
+                  _buildTipsSection(context, quest),
                   const SizedBox(height: 32),
-                  
+
                   // Action buttons
                   _buildActionButtons(context, quest),
                   const SizedBox(height: 32),
@@ -130,7 +273,7 @@ class QuestDetailsScreen extends ConsumerWidget {
                     context,
                     Icons.schedule_outlined,
                     'Duration',
-                    quest['duration'] as String,
+                    QuestService.formatDuration(quest['estimated_duration_minutes']),
                   ),
                 ),
                 Expanded(
@@ -138,7 +281,7 @@ class QuestDetailsScreen extends ConsumerWidget {
                     context,
                     Icons.star_outline,
                     'Reward',
-                    '${quest['points']} points',
+                    '${quest['points'] ?? 0} points',
                   ),
                 ),
               ],
@@ -152,7 +295,7 @@ class QuestDetailsScreen extends ConsumerWidget {
                     context,
                     Icons.location_on_outlined,
                     'Location',
-                    quest['location'] as String,
+                    'Anywhere', // Generic location since we don't have specific location data
                   ),
                 ),
                 Expanded(
@@ -160,7 +303,7 @@ class QuestDetailsScreen extends ConsumerWidget {
                     context,
                     Icons.people_outline,
                     'Category',
-                    quest['category'] as String,
+                    quest['category']?.toString() ?? 'Quest',
                   ),
                 ),
               ],
@@ -208,7 +351,68 @@ class QuestDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTipsSection(BuildContext context, List<String> tips) {
+  Widget _buildTipsSection(BuildContext context, Map<String, dynamic> quest) {
+    // Generate generic tips based on quest category
+    final category = quest['category']?.toString().toLowerCase() ?? '';
+    List<String> tips = [];
+
+    switch (category) {
+      case 'cafe':
+        tips = [
+          'Use Google Maps to find nearby coffee shops',
+          'Try ordering something different from your usual',
+          'Take a photo to remember the experience',
+          'Leave a positive review if you enjoyed it',
+        ];
+        break;
+      case 'exercise':
+        tips = [
+          'Start with a warm-up to prevent injury',
+          'Stay hydrated throughout your activity',
+          'Listen to your body and rest when needed',
+          'Track your progress to stay motivated',
+        ];
+        break;
+      case 'kindness':
+        tips = [
+          'Small acts of kindness can make a big difference',
+          'Be genuine and authentic in your approach',
+          'Don\'t expect anything in return',
+          'Share your positive experience with others',
+        ];
+        break;
+      case 'culture':
+        tips = [
+          'Keep an open mind and be curious',
+          'Take notes or photos to remember the experience',
+          'Ask questions if guided tours are available',
+          'Share what you learned with friends or family',
+        ];
+        break;
+      case 'nature':
+        tips = [
+          'Dress appropriately for the weather',
+          'Bring water and snacks if needed',
+          'Respect the environment and wildlife',
+          'Take time to appreciate the natural beauty',
+        ];
+        break;
+      case 'learning':
+        tips = [
+          'Set aside dedicated time without distractions',
+          'Take notes to help retain information',
+          'Practice what you learn to reinforce it',
+          'Share your new knowledge with others',
+        ];
+        break;
+      default:
+        tips = [
+          'Take your time and enjoy the experience',
+          'Stay safe and be aware of your surroundings',
+          'Document your progress with photos or notes',
+          'Celebrate your accomplishment when complete',
+        ];
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -265,25 +469,75 @@ class QuestDetailsScreen extends ConsumerWidget {
   }
 
   Widget _buildActionButtons(BuildContext context, Map<String, dynamic> quest) {
+    final assignment = quest['assignment'];
+    final isAssigned = assignment != null;
+    final isCompleted = assignment?['is_completed'] == true;
+
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              // Show completion dialog
-              _showCompletionDialog(context);
-            },
-            child: const Text('Complete Quest'),
+        if (isAssigned && !isCompleted) ...[
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _showCompletionDialog(context),
+              child: const Text('Mark as Completed'),
+            ),
           ),
-        ),
+        ] else if (isCompleted) ...[
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green[700]),
+                  const SizedBox(width: 8),
+                  const Text('Completed'),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange[200]!),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange[700]),
+                const SizedBox(height: 8),
+                Text(
+                  'Quest Not Assigned',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.orange[700],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This quest is not currently assigned to you. Check your daily or weekly quests.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.orange[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
-        
         SizedBox(
           width: double.infinity,
-          child: TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Maybe Later'),
+          child: OutlinedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Back to Home'),
           ),
         ),
       ],
@@ -294,57 +548,24 @@ class QuestDetailsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Quest Completed! 🎉'),
-        content: const Text('Great job! You\'ve earned 50 points and unlocked a new badge.'),
+        title: const Text('Complete Quest'),
+        content: const Text('Are you sure you want to mark this quest as completed?'),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              await _completeQuest();
             },
-            child: const Text('Awesome!'),
+            child: const Text('Complete'),
           ),
         ],
       ),
     );
   }
 
-  Map<String, dynamic> _getMockQuest(String questId) {
-    // Mock data - in real app this would come from a data source
-    if (questId == 'daily-1') {
-      return {
-        'title': 'Visit a local coffee shop you\'ve never been to',
-        'description': 'Discover a new spot in your neighborhood and treat yourself to your favorite drink. Take a moment to appreciate the atmosphere and maybe strike up a conversation with the barista or a fellow customer.',
-        'type': 'Daily Quest',
-        'icon': Icons.local_cafe_outlined,
-        'duration': '30 minutes',
-        'points': 50,
-        'location': 'Local area',
-        'category': 'Discovery',
-        'tips': [
-          'Use Google Maps to find coffee shops within walking distance',
-          'Try ordering something different from your usual',
-          'Take a photo to remember the experience',
-          'Leave a positive review if you enjoyed it',
-        ],
-      };
-    } else {
-      return {
-        'title': 'Connect with 3 neighbors this week',
-        'description': 'Build community connections by having meaningful interactions with people in your neighborhood. This could be helping with groceries, sharing a smile, or having a genuine conversation.',
-        'type': 'Weekly Challenge',
-        'icon': Icons.people_outline,
-        'duration': '7 days',
-        'points': 150,
-        'location': 'Your neighborhood',
-        'category': 'Social',
-        'tips': [
-          'Start with a simple greeting or smile',
-          'Offer help when you see someone struggling',
-          'Attend local community events',
-          'Walk your dog or spend time in common areas',
-        ],
-      };
-    }
-  }
+
 }

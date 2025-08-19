@@ -122,6 +122,35 @@ class QuestService {
     }
   }
 
+  // Get quest details by ID
+  static Future<Map<String, dynamic>?> getQuestDetails(String questId) async {
+    try {
+      final token = AuthService.currentToken;
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/$questId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['return_code'] == 'SUCCESS') {
+        return data['quest'];
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get quest details');
+      }
+    } catch (e) {
+      print('Error getting quest details: $e');
+      return null;
+    }
+  }
+
   // Complete a quest
   static Future<Map<String, dynamic>?> completeQuest(
     int assignmentId, {
