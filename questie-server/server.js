@@ -54,6 +54,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/quests', require('./routes/quests'));
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -79,6 +80,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Questie server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
+  console.log(`🎯 Quest API: http://localhost:${PORT}/api/quests`);
 });
 
 module.exports = app;

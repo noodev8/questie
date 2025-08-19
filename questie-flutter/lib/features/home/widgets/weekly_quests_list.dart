@@ -1,47 +1,58 @@
 import 'package:flutter/material.dart';
+import '../../../services/quest_service.dart';
 
-class WeeklyQuestsList extends StatelessWidget {
+class WeeklyQuestsList extends StatefulWidget {
   const WeeklyQuestsList({super.key});
 
   @override
+  State<WeeklyQuestsList> createState() => _WeeklyQuestsListState();
+}
+
+class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
+  List<Map<String, dynamic>>? _weeklyQuests;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWeeklyQuests();
+  }
+
+  Future<void> _loadWeeklyQuests() async {
+    try {
+      final quests = await QuestService.getWeeklyQuests();
+      setState(() {
+        _weeklyQuests = quests;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final weeklyQuests = [
-      {
-        'title': 'Practice gratitude daily',
-        'description': 'Write down 3 things you\'re grateful for',
-        'progress': 3,
-        'total': 7,
-        'icon': '🙏',
-      },
-      {
-        'title': 'Take mindful walks',
-        'description': '15-minute walks in nature',
-        'progress': 2,
-        'total': 5,
-        'icon': '🚶‍♀️',
-      },
-      {
-        'title': 'Digital detox hour',
-        'description': 'One hour without screens',
-        'progress': 4,
-        'total': 7,
-        'icon': '📱',
-      },
-      {
-        'title': 'Connect with loved ones',
-        'description': 'Call or message someone you care about',
-        'progress': 1,
-        'total': 3,
-        'icon': '💝',
-      },
-      {
-        'title': 'Practice deep breathing',
-        'description': '5 minutes of focused breathing',
-        'progress': 5,
-        'total': 7,
-        'icon': '🌬️',
-      },
-    ];
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_weeklyQuests == null || _weeklyQuests!.isEmpty) {
+      return const Center(
+        child: Text('No weekly quests available'),
+      );
+    }
+
+    final weeklyQuests = _weeklyQuests!.map((quest) => {
+      'title': quest['title'] ?? 'Weekly Quest',
+      'description': quest['description'] ?? 'Complete this weekly quest',
+      'progress': quest['is_completed'] == true ? 1 : 0,
+      'total': 1,
+      'icon': QuestService.getCategoryIcon(quest['category'] ?? ''),
+      'points': quest['points'] ?? 0,
+      'category': quest['category'] ?? 'Quest',
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

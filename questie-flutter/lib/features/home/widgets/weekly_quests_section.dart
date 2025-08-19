@@ -1,13 +1,132 @@
 import 'package:flutter/material.dart';
 import '../../../core/router/app_router.dart';
+import '../../../services/quest_service.dart';
 
-class WeeklyQuestsSection extends StatelessWidget {
+class WeeklyQuestsSection extends StatefulWidget {
   const WeeklyQuestsSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final weeklyQuests = _getMockWeeklyQuests();
+  State<WeeklyQuestsSection> createState() => _WeeklyQuestsSectionState();
+}
 
+class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
+  List<Map<String, dynamic>>? _weeklyQuests;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWeeklyQuests();
+  }
+
+  Future<void> _loadWeeklyQuests() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final quests = await QuestService.getWeeklyQuests();
+
+      setState(() {
+        _weeklyQuests = quests;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return _buildLoadingCard(context);
+    }
+
+    if (_error != null || _weeklyQuests == null || _weeklyQuests!.isEmpty) {
+      return _buildErrorCard(context);
+    }
+
+    return _buildQuestsCard(context, _weeklyQuests!);
+  }
+
+  Widget _buildLoadingCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: Colors.red[400],
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Unable to load weekly quests',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please check your connection and try again',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadWeeklyQuests,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestsCard(BuildContext context, List<Map<String, dynamic>> quests) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -167,11 +286,11 @@ class WeeklyQuestsSection extends StatelessWidget {
             const SizedBox(height: 24),
             
             // Weekly quests list
-            ...weeklyQuests.asMap().entries.map((entry) {
+            ...quests.asMap().entries.map((entry) {
               final index = entry.key;
               final quest = entry.value;
               return Padding(
-                padding: EdgeInsets.only(bottom: index < weeklyQuests.length - 1 ? 16 : 0),
+                padding: EdgeInsets.only(bottom: index < quests.length - 1 ? 16 : 0),
                 child: _buildWeeklyQuestItem(context, quest),
               );
             }),
@@ -198,10 +317,12 @@ class WeeklyQuestsSection extends StatelessWidget {
   }
 
   Widget _buildWeeklyQuestItem(BuildContext context, Map<String, dynamic> quest) {
-    final isCompleted = quest['completed'] as bool;
+    final isCompleted = quest['is_completed'] ?? false;
+    final categoryIcon = QuestService.getCategoryIcon(quest['category'] ?? '');
+    final duration = QuestService.formatDuration(quest['estimated_duration_minutes']);
     
     return InkWell(
-      onTap: () => AppRouter.goToQuestDetails(context, quest['id'] as String),
+      onTap: () => AppRouter.goToQuestDetails(context, quest['quest_id']?.toString() ?? ''),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -249,13 +370,16 @@ class WeeklyQuestsSection extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                isCompleted ? Icons.check_circle : quest['icon'] as IconData,
-                color: isCompleted
-                    ? Colors.green[700]
-                    : Theme.of(context).colorScheme.primary,
-                size: 22,
-              ),
+              child: isCompleted
+                  ? Icon(
+                      Icons.check_circle,
+                      color: Colors.green[700],
+                      size: 22,
+                    )
+                  : Text(
+                      categoryIcon,
+                      style: const TextStyle(fontSize: 18),
+                    ),
             ),
             const SizedBox(width: 16),
             
@@ -264,7 +388,7 @@ class WeeklyQuestsSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    quest['title'] as String,
+                    quest['title'] ?? 'Weekly Quest',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                       decoration: isCompleted ? TextDecoration.lineThrough : null,
@@ -272,12 +396,14 @@ class WeeklyQuestsSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  
+
                   Row(
                     children: [
-                      _buildQuestTag(context, quest['category'] as String),
+                      _buildQuestTag(context, quest['category'] ?? 'Quest'),
                       const SizedBox(width: 8),
-                      _buildQuestTag(context, '${quest['points']} XP'),
+                      _buildQuestTag(context, '${quest['points'] ?? 0} pts'),
+                      const SizedBox(width: 8),
+                      _buildQuestTag(context, duration),
                     ],
                   ),
                 ],
@@ -321,48 +447,5 @@ class WeeklyQuestsSection extends StatelessWidget {
     );
   }
 
-  List<Map<String, dynamic>> _getMockWeeklyQuests() {
-    return [
-      {
-        'id': 'weekly-1',
-        'title': 'Connect with 3 neighbors',
-        'category': 'Social',
-        'points': 100,
-        'icon': Icons.people_outline,
-        'completed': true,
-      },
-      {
-        'id': 'weekly-2',
-        'title': 'Try a new local restaurant',
-        'category': 'Discovery',
-        'points': 80,
-        'icon': Icons.restaurant_outlined,
-        'completed': true,
-      },
-      {
-        'id': 'weekly-3',
-        'title': 'Take 3 mindful walks',
-        'category': 'Wellness',
-        'points': 60,
-        'icon': Icons.directions_walk_outlined,
-        'completed': false,
-      },
-      {
-        'id': 'weekly-4',
-        'title': 'Visit a local park or garden',
-        'category': 'Nature',
-        'points': 70,
-        'icon': Icons.park_outlined,
-        'completed': false,
-      },
-      {
-        'id': 'weekly-5',
-        'title': 'Help someone in your community',
-        'category': 'Kindness',
-        'points': 120,
-        'icon': Icons.volunteer_activism_outlined,
-        'completed': false,
-      },
-    ];
-  }
+
 }

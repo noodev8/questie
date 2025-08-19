@@ -185,8 +185,210 @@ const userAuth = {
   }
 };
 
+// Quest management functions
+const questManager = {
+  // Get all active quests
+  async getAllActiveQuests() {
+    const text = `
+      SELECT q.id, q.category_id, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM quest q
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE q.is_active = true AND qc.is_active = true
+      ORDER BY q.difficulty_level, q.title
+    `;
+    const result = await query(text);
+    return result.rows;
+  },
+
+  // Get random quest by difficulty
+  async getRandomQuestByDifficulty(difficulty, excludeQuestIds = []) {
+    let excludeClause = '';
+    let params = [difficulty];
+
+    if (excludeQuestIds.length > 0) {
+      excludeClause = `AND q.id NOT IN (${excludeQuestIds.map((_, i) => `$${i + 2}`).join(',')})`;
+      params = params.concat(excludeQuestIds);
+    }
+
+    const text = `
+      SELECT q.id, q.category_id, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM quest q
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE q.is_active = true AND qc.is_active = true
+      AND q.difficulty_level = $1 ${excludeClause}
+      ORDER BY RANDOM()
+      LIMIT 1
+    `;
+    const result = await query(text, params);
+    return result.rows[0];
+  },
+
+  // Get user's current daily quest
+  async getUserDailyQuest(userId, date = new Date()) {
+    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    const text = `
+      SELECT uqa.id as assignment_id, uqa.quest_id, uqa.assigned_date, uqa.is_completed,
+             uqa.completed_at, uqa.expires_at, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM user_quest_assignment uqa
+      JOIN quest q ON uqa.quest_id = q.id
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE uqa.user_id = $1
+      AND uqa.assignment_type = 'daily'
+      AND uqa.assigned_date = $2
+      ORDER BY uqa.created_at DESC
+      LIMIT 1
+    `;
+    const result = await query(text, [userId, dateStr]);
+    return result.rows[0];
+  },
+
+  // Get user's current weekly quests
+  async getUserWeeklyQuests(userId, weekStart = null) {
+    if (!weekStart) {
+      // Calculate Monday of current week
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, Monday = 1
+      weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - daysToMonday);
+    }
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    const text = `
+      SELECT uqa.id as assignment_id, uqa.quest_id, uqa.assigned_date, uqa.is_completed,
+             uqa.completed_at, uqa.expires_at, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM user_quest_assignment uqa
+      JOIN quest q ON uqa.quest_id = q.id
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE uqa.user_id = $1
+      AND uqa.assignment_type = 'weekly'
+      AND uqa.assigned_date = $2
+      ORDER BY q.difficulty_level, q.title
+    `;
+    const result = await query(text, [userId, weekStartStr]);
+    return result.rows;
+  },
+
+  // Assign daily quest to user
+  async assignDailyQuest(userId, questId, date = new Date()) {
+    const dateStr = date.toISOString().split('T')[0];
+    const expiresAt = new Date(date);
+    expiresAt.setDate(expiresAt.getDate() + 1); // Expires at end of day
+    expiresAt.setHours(23, 59, 59, 999);
+
+    const text = `
+      INSERT INTO user_quest_assignment (user_id, quest_id, assignment_type, assigned_date, expires_at)
+      VALUES ($1, $2, 'daily', $3, $4)
+      RETURNING id, quest_id, assignment_type, assigned_date, expires_at, is_completed
+    `;
+    const result = await query(text, [userId, questId, dateStr, expiresAt]);
+    return result.rows[0];
+  },
+
+  // Assign weekly quests to user
+  async assignWeeklyQuests(userId, questIds, weekStart = null) {
+    if (!weekStart) {
+      // Calculate Monday of current week
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - daysToMonday);
+    }
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const expiresAt = new Date(weekStart);
+    expiresAt.setDate(expiresAt.getDate() + 7); // Expires at end of week
+    expiresAt.setHours(23, 59, 59, 999);
+
+    const assignments = [];
+    for (const questId of questIds) {
+      const text = `
+        INSERT INTO user_quest_assignment (user_id, quest_id, assignment_type, assigned_date, expires_at)
+        VALUES ($1, $2, 'weekly', $3, $4)
+        RETURNING id, quest_id, assignment_type, assigned_date, expires_at, is_completed
+      `;
+      const result = await query(text, [userId, questId, weekStartStr, expiresAt]);
+      assignments.push(result.rows[0]);
+    }
+    return assignments;
+  },
+
+  // Check if user has rerolled quest today
+  async hasUserRerolledToday(userId, assignmentType, date = new Date()) {
+    const dateStr = date.toISOString().split('T')[0];
+
+    const text = `
+      SELECT COUNT(*) as reroll_count
+      FROM user_quest_assignment
+      WHERE user_id = $1
+      AND assignment_type = $2
+      AND assigned_date = $3
+    `;
+    const result = await query(text, [userId, assignmentType, dateStr]);
+    return parseInt(result.rows[0].reroll_count) > 1;
+  },
+
+  // Complete a quest
+  async completeQuest(userId, assignmentId, completionNotes = null) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Mark assignment as completed
+      const updateText = `
+        UPDATE user_quest_assignment
+        SET is_completed = true, completed_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND user_id = $2
+        RETURNING quest_id, assignment_type, assigned_date
+      `;
+      const updateResult = await client.query(updateText, [assignmentId, userId]);
+
+      if (updateResult.rows.length === 0) {
+        throw new Error('Quest assignment not found');
+      }
+
+      const assignment = updateResult.rows[0];
+
+      // Get quest details for points
+      const questText = `
+        SELECT points FROM quest WHERE id = $1
+      `;
+      const questResult = await client.query(questText, [assignment.quest_id]);
+      const points = questResult.rows[0]?.points || 0;
+
+      // Record completion
+      const completionText = `
+        INSERT INTO user_quest_completion (user_id, quest_id, assignment_id, completion_notes, points_earned)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, points_earned, completed_at
+      `;
+      const completionResult = await client.query(completionText, [
+        userId, assignment.quest_id, assignmentId, completionNotes, points
+      ]);
+
+      await client.query('COMMIT');
+      return {
+        assignment,
+        completion: completionResult.rows[0],
+        points_earned: points
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+};
+
 module.exports = {
   query,
   userAuth,
+  questManager,
   pool
 };
