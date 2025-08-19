@@ -8,31 +8,24 @@ class WeeklyQuestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Colors.purple[25] ?? Colors.purple[50]!,
-          ],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: Colors.purple.withOpacity(0.08),
+            color: Colors.purple.withValues(alpha: 0.08),
             blurRadius: 32,
             offset: const Offset(0, 16),
             spreadRadius: 4,
           ),
         ],
         border: Border.all(
-          color: Colors.purple.withOpacity(0.15),
+          color: Colors.purple.withValues(alpha: 0.15),
           width: 1.5,
         ),
       ),

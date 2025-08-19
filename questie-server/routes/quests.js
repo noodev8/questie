@@ -235,6 +235,9 @@ router.post('/daily/reroll', authMiddleware.requireAuth, questLimiter, async (re
       });
     }
 
+    // Log the reroll
+    await questManager.logReroll(userId, 'daily', today);
+
     // Assign the new quest (this will create a second assignment for today)
     await questManager.assignDailyQuest(userId, newQuest.id, today);
     
@@ -315,6 +318,12 @@ router.post('/weekly/reroll', authMiddleware.requireAuth, questLimiter, async (r
         message: 'Not enough alternative quests available for reroll'
       });
     }
+
+    // Delete old weekly quest assignments for this week
+    await questManager.deleteWeeklyQuests(userId, weekStart);
+
+    // Log the reroll
+    await questManager.logReroll(userId, 'weekly', weekStart);
 
     // Assign the new quests (this will create new assignments for this week)
     const newQuestIds = newQuests.map(q => q.id);

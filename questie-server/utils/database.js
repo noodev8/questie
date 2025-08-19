@@ -306,7 +306,8 @@ const questManager = {
       WHERE uqa.user_id = $1
       AND uqa.assignment_type = 'weekly'
       AND uqa.assigned_date = $2
-      ORDER BY q.difficulty_level, q.title
+      ORDER BY uqa.created_at DESC, q.difficulty_level, q.title
+      LIMIT 5
     `;
     const result = await query(text, [userId, weekStartStr]);
     return result.rows;
@@ -356,19 +357,71 @@ const questManager = {
     return assignments;
   },
 
-  // Check if user has rerolled quest today
+  // Check if user has rerolled quest today/this week
   async hasUserRerolledToday(userId, assignmentType, date = new Date()) {
     const dateStr = date.toISOString().split('T')[0];
 
+    // Check reroll log table for this user, assignment type, and date
     const text = `
       SELECT COUNT(*) as reroll_count
-      FROM user_quest_assignment
+      FROM user_reroll_log
       WHERE user_id = $1
       AND assignment_type = $2
-      AND assigned_date = $3
+      AND reroll_date = $3
     `;
-    const result = await query(text, [userId, assignmentType, dateStr]);
-    return parseInt(result.rows[0].reroll_count) > 1;
+
+    try {
+      const result = await query(text, [userId, assignmentType, dateStr]);
+      return parseInt(result.rows[0].reroll_count) > 0;
+    } catch (error) {
+      // If table doesn't exist, create it and return false
+      if (error.code === '42P01') { // Table doesn't exist
+        await this.createRerollLogTable();
+        return false;
+      }
+      throw error;
+    }
+  },
+
+  // Create reroll log table if it doesn't exist
+  async createRerollLogTable() {
+    const text = `
+      CREATE TABLE IF NOT EXISTS user_reroll_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        assignment_type VARCHAR(10) NOT NULL CHECK (assignment_type IN ('daily', 'weekly')),
+        reroll_date DATE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, assignment_type, reroll_date)
+      )
+    `;
+    await query(text);
+  },
+
+  // Log a reroll
+  async logReroll(userId, assignmentType, date = new Date()) {
+    const dateStr = date.toISOString().split('T')[0];
+
+    const text = `
+      INSERT INTO user_reroll_log (user_id, assignment_type, reroll_date)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, assignment_type, reroll_date) DO NOTHING
+    `;
+    await query(text, [userId, assignmentType, dateStr]);
+  },
+
+  // Delete weekly quest assignments for a specific week
+  async deleteWeeklyQuests(userId, weekStart) {
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    const text = `
+      DELETE FROM user_quest_assignment
+      WHERE user_id = $1
+      AND assignment_type = 'weekly'
+      AND assigned_date = $2
+    `;
+    const result = await query(text, [userId, weekStartStr]);
+    return result.rowCount;
   },
 
   // Complete a quest

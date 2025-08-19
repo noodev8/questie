@@ -33,12 +33,25 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         _error = null;
       });
 
-      final quests = await QuestService.getWeeklyQuests();
+      final questData = await QuestService.getWeeklyQuestsWithRerollInfo();
 
-      setState(() {
-        _weeklyQuests = quests;
-        _isLoading = false;
-      });
+      if (questData != null) {
+        setState(() {
+          _weeklyQuests = questData['quests'];
+          _isLoading = false;
+        });
+        // Debug: Print the quest data to see can_reroll status
+        print('Weekly quests loaded: ${questData['quests']?.length} quests');
+        print('Can reroll: ${questData['can_reroll']}');
+        if (questData['quests'] != null && questData['quests'].isNotEmpty) {
+          print('First quest can_reroll: ${questData['quests'][0]['can_reroll']}');
+        }
+      } else {
+        setState(() {
+          _weeklyQuests = null;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -95,10 +108,8 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
       final newQuests = await QuestService.rerollWeeklyQuests();
 
       if (newQuests != null) {
-        setState(() {
-          _weeklyQuests = newQuests;
-          _isLoading = false;
-        });
+        // Reload the quests to get updated can_reroll status
+        await _loadWeeklyQuests();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -288,12 +299,7 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFFE8F5E8), // Light green
-                const Color(0xFFFDF2E9), // Soft beige
-              ],
-            ),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: const Color(0xFF6B8E6B).withValues(alpha: 0.3),
@@ -372,16 +378,7 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              isCompleted
-                ? const Color(0xFFE8F5E8) // Light green when completed
-                : const Color(0xFFFDF2E9), // Soft beige when in progress
-            ],
-          ),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -410,11 +407,9 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isCompleted
-                      ? [Colors.green[100]!, Colors.green[50]!]
-                      : [const Color(0xFFE8F5E8), const Color(0xFFFDF2E9)],
-                ),
+                color: isCompleted
+                    ? Colors.green[50]!
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isCompleted

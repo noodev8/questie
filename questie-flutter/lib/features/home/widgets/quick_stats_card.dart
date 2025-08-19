@@ -7,31 +7,24 @@ class QuickStatsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFFFDF2E9), // Soft beige
-          ],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: const Color(0xFF6B8E6B).withOpacity(0.08), // Green shadow
+            color: const Color(0xFF6B8E6B).withValues(alpha: 0.08), // Green shadow
             blurRadius: 32,
             offset: const Offset(0, 16),
             spreadRadius: 4,
           ),
         ],
         border: Border.all(
-          color: const Color(0xFF6B8E6B).withOpacity(0.15), // Green border
+          color: const Color(0xFF6B8E6B).withValues(alpha: 0.15), // Green border
           width: 1.5,
         ),
       ),
@@ -89,7 +82,7 @@ class QuickStatsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

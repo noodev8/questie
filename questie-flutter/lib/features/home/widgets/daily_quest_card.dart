@@ -313,19 +313,14 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isCompleted
-                          ? [const Color(0xFFE8F5E8), const Color(0xFFE8F5E8)]
-                          : [
-                              const Color(0xFFE8F5E8), // Light green
-                              const Color(0xFFFDF2E9), // Soft peach/beige
-                            ],
-                    ),
+                    color: isCompleted
+                        ? const Color(0xFFE8F5E8)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(
                       color: isCompleted
-                          ? Colors.green.withOpacity(0.3)
-                          : Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                          ? Colors.green.withValues(alpha: 0.3)
+                          : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),

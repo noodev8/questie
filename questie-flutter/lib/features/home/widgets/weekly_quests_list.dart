@@ -10,6 +10,7 @@ class WeeklyQuestsList extends StatefulWidget {
 
 class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
   List<Map<String, dynamic>>? _weeklyQuests;
+  bool _canReroll = false;
   bool _isLoading = true;
 
   @override
@@ -20,15 +21,101 @@ class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
 
   Future<void> _loadWeeklyQuests() async {
     try {
-      final quests = await QuestService.getWeeklyQuests();
-      setState(() {
-        _weeklyQuests = quests;
-        _isLoading = false;
-      });
+      final questData = await QuestService.getWeeklyQuestsWithRerollInfo();
+      if (questData != null) {
+        setState(() {
+          _weeklyQuests = questData['quests'];
+          _canReroll = questData['can_reroll'] ?? false;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _showRerollDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reroll Weekly Quests'),
+        content: const Text(
+          'Are you sure you want to reroll all your weekly quests? You can only do this once per week and will get 5 different quests.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reroll'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _rerollWeeklyQuests();
+    }
+  }
+
+  Future<void> _rerollWeeklyQuests() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final newQuests = await QuestService.rerollWeeklyQuests();
+
+      if (newQuests != null) {
+        setState(() {
+          _weeklyQuests = newQuests;
+          _canReroll = false; // Can't reroll again this week
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Weekly quests rerolled successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to reroll quests. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An error occurred. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -61,20 +148,15 @@ class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFFE8F5E8), // Light green
-                const Color(0xFFFDF2E9), // Soft beige
-              ],
-            ),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
-              color: const Color(0xFF6B8E6B).withOpacity(0.3),
+              color: const Color(0xFF6B8E6B).withValues(alpha: 0.3),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6B8E6B).withOpacity(0.2),
+                color: const Color(0xFF6B8E6B).withValues(alpha: 0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -96,6 +178,20 @@ class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(width: 12),
+              if (_canReroll) ...[
+                TextButton.icon(
+                  onPressed: () => _showRerollDialog(context),
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: const Text('Reroll'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF6B8E6B),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -119,35 +215,26 @@ class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            isCompleted 
-              ? const Color(0xFFE8F5E8) // Light green when completed
-              : const Color(0xFFFDF2E9), // Soft beige when in progress
-          ],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: const Color(0xFF6B8E6B).withOpacity(0.05),
+            color: const Color(0xFF6B8E6B).withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: 2,
           ),
         ],
         border: Border.all(
-          color: isCompleted 
-            ? const Color(0xFF6B8E6B).withOpacity(0.3)
-            : const Color(0xFF6B8E6B).withOpacity(0.1),
+          color: isCompleted
+            ? const Color(0xFF6B8E6B).withValues(alpha: 0.3)
+            : const Color(0xFF6B8E6B).withValues(alpha: 0.1),
           width: 1,
         ),
       ),
@@ -158,16 +245,11 @@ class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFE8F5E8),
-                  const Color(0xFFFDF2E9),
-                ],
-              ),
+              color: Colors.white,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6B8E6B).withOpacity(0.2),
+                  color: const Color(0xFF6B8E6B).withValues(alpha: 0.2),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),

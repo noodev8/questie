@@ -64,6 +64,39 @@ class QuestService {
     }
   }
 
+  // Get user's weekly quests with reroll info
+  static Future<Map<String, dynamic>?> getWeeklyQuestsWithRerollInfo() async {
+    try {
+      final token = AuthService.currentToken;
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/weekly'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['return_code'] == 'SUCCESS') {
+        return {
+          'quests': List<Map<String, dynamic>>.from(data['quests']),
+          'can_reroll': data['can_reroll'] ?? false,
+          'week_start': data['week_start'],
+        };
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get weekly quests');
+      }
+    } catch (e) {
+      print('Error getting weekly quests: $e');
+      return null;
+    }
+  }
+
   // Reroll daily quest
   static Future<Map<String, dynamic>?> rerollDailyQuest() async {
     try {

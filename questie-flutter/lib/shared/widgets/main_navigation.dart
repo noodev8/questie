@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'app_header.dart';
 
 class MainNavigation extends StatelessWidget {
   final Widget child;
@@ -12,7 +13,12 @@ class MainNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: child,
+      body: Column(
+        children: [
+          const AppHeader(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
