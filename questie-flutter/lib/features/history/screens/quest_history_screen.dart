@@ -117,10 +117,6 @@ class _QuestHistoryScreenState extends ConsumerState<QuestHistoryScreen> {
           Expanded(
             child: _buildFilterTab(context, 'Completed', 'completed'),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _buildFilterTab(context, 'Favorites', 'favorites'),
-          ),
         ],
       ),
     );
@@ -241,7 +237,6 @@ class _QuestHistoryScreenState extends ConsumerState<QuestHistoryScreen> {
     final description = quest['description'] ?? '';
     final categoryName = quest['category_name'] ?? 'General';
     final points = quest['points'] ?? 0;
-    final completionNotes = quest['completion_notes'];
 
     // Format date
     String dateText = 'Unknown date';
@@ -404,37 +399,6 @@ class _QuestHistoryScreenState extends ConsumerState<QuestHistoryScreen> {
                 height: 1.4,
               ),
             ),
-
-            if (isCompleted && completionNotes != null && completionNotes.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.format_quote,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        completionNotes,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
