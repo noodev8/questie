@@ -21,6 +21,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   String? _error;
   bool _showStamp = false;
   List<dynamic> _completionBadges = [];
+  bool _isProcessing = false; // Prevent rapid clicking
 
   @override
   void initState() {
@@ -58,7 +59,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   }
 
   Future<void> _completeQuest() async {
-    if (_quest == null) return;
+    if (_quest == null || _isProcessing) return;
 
     final assignment = _quest!['assignment'];
     if (assignment == null) {
@@ -82,6 +83,10 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     }
 
     try {
+      setState(() {
+        _isProcessing = true;
+      });
+
       final result = await QuestService.completeQuest(
         assignment['assignment_id'],
         completionNotes: 'Completed via quest details screen',
@@ -98,10 +103,14 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
           // Show stamp animation
           setState(() {
             _showStamp = true;
+            _isProcessing = false;
           });
         }
       } else {
         if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to complete quest. Please try again.'),
@@ -112,6 +121,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
@@ -523,9 +535,11 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: isCompleted
-                  ? () => _showUnmarkDialog(context)
-                  : () => _showCompletionDialog(context),
+              onPressed: _isProcessing
+                  ? null
+                  : (isCompleted
+                      ? () => _showUnmarkDialog(context)
+                      : () => _showCompletionDialog(context)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isCompleted
                     ? Colors.orange[700]
@@ -534,12 +548,27 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    isCompleted ? Icons.undo : Icons.check_circle,
-                    size: 20,
-                  ),
+                  if (_isProcessing) ...[
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isCompleted ? Colors.white : Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    Icon(
+                      isCompleted ? Icons.undo : Icons.check_circle,
+                      size: 20,
+                    ),
+                  ],
                   const SizedBox(width: 8),
-                  Text(isCompleted ? 'Unmark as Completed' : 'Mark as Completed'),
+                  Text(_isProcessing
+                      ? 'Processing...'
+                      : (isCompleted ? 'Unmark as Completed' : 'Mark as Completed')),
                 ],
               ),
             ),
@@ -640,12 +669,16 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   }
 
   Future<void> _uncompleteQuest() async {
-    if (_quest == null) return;
+    if (_quest == null || _isProcessing) return;
 
     final assignment = _quest!['assignment'];
     if (assignment == null) return;
 
     try {
+      setState(() {
+        _isProcessing = true;
+      });
+
       final result = await QuestService.uncompleteQuest(
         assignment['assignment_id'],
       );
@@ -656,6 +689,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
           await _loadQuestDetails();
 
           if (mounted) {
+            setState(() {
+              _isProcessing = false;
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Quest unmarked successfully!'),
@@ -666,6 +702,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
         }
       } else {
         if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to unmark quest. Please try again.'),
@@ -676,6 +715,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),

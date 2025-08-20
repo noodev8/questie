@@ -16,8 +16,8 @@ const router = express.Router();
 
 // Rate limiting for quest endpoints
 const questLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // limit each IP to 30 requests per windowMs for quest endpoints
+  windowMs: 5 * 60 * 1000, // 5 minutes (shorter window)
+  max: 100, // increased limit for core functionality
   message: {
     return_code: 'RATE_LIMIT_EXCEEDED',
     message: 'Too many quest requests, please try again later.'
