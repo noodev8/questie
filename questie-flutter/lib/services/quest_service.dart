@@ -158,11 +158,23 @@ class QuestService {
   // Get quest details by ID
   static Future<Map<String, dynamic>?> getQuestDetails(String questId) async {
     try {
+      // Validate quest ID
+      if (questId.isEmpty || questId == 'null' || questId == 'undefined') {
+        throw Exception('Invalid quest ID: $questId');
+      }
+
+      // Try to parse as integer to validate
+      final parsedId = int.tryParse(questId);
+      if (parsedId == null || parsedId <= 0) {
+        throw Exception('Quest ID must be a positive integer: $questId');
+      }
+
       final token = AuthService.currentToken;
       if (token == null) {
         throw Exception('No authentication token found');
       }
 
+      print('Getting quest details for ID: $questId'); // Debug
       final response = await http.get(
         Uri.parse('$_baseUrl/$questId'),
         headers: {
@@ -306,5 +318,50 @@ class QuestService {
     final remainingMinutes = minutes % 60;
     if (remainingMinutes == 0) return '${hours}h';
     return '${hours}h ${remainingMinutes}m';
+  }
+
+  // Get quest history
+  static Future<List<Map<String, dynamic>>?> getQuestHistory({
+    String? filter, // 'all', 'completed', 'favorites'
+    int limit = 50,
+  }) async {
+    try {
+      final token = AuthService.currentToken;
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final queryParams = <String, String>{
+        'limit': limit.toString(),
+      };
+      if (filter != null && filter != 'all') {
+        queryParams['filter'] = filter;
+      }
+
+      final uri = Uri.parse('$_baseUrl/history').replace(queryParameters: queryParams);
+      print('Making quest history request to: $uri'); // Debug
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      print('Quest history response status: ${response.statusCode}'); // Debug
+      print('Quest history response body: ${response.body}'); // Debug
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['return_code'] == 'SUCCESS') {
+        return List<Map<String, dynamic>>.from(data['history']);
+      } else {
+        print('Quest history API error: ${data['message']}'); // Debug
+        throw Exception(data['message'] ?? 'Failed to get quest history');
+      }
+    } catch (e) {
+      print('Error getting quest history: $e');
+      return null;
+    }
   }
 }

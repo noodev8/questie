@@ -396,52 +396,7 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isCompleted
-                        ? const Color(0xFFE8F5E8)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(
-                      color: isCompleted
-                          ? Colors.green.withValues(alpha: 0.3)
-                          : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        categoryIcon,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isCompleted ? 'Completed' : 'Today\'s Quest',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: isCompleted
-                              ? Colors.green[700]
-                              : Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (isCompleted) ...[
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.check_circle,
-                          color: Colors.green[700],
-                          size: 16,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            // Status badge removed as requested
             const SizedBox(height: 16),
 
             Text(

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../shared/widgets/calm_mode_toggle.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -32,8 +31,6 @@ class SettingsScreen extends ConsumerWidget {
 
               // Experience Section
               _buildSectionHeader(context, 'Experience'),
-              const SizedBox(height: 16),
-              const CalmModeToggle(),
               const SizedBox(height: 16),
               _buildExperienceSettings(context),
               const SizedBox(height: 32),

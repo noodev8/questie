@@ -355,14 +355,64 @@ router.post('/weekly/reroll', authMiddleware.requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/quests/history - Get user's quest history (MUST come before /:questId)
+router.get('/history', authMiddleware.requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { filter = 'all', limit = '50' } = req.query;
+
+    // Parse and validate limit parameter
+    const parsedLimit = parseInt(limit);
+    const validLimit = isNaN(parsedLimit) ? 50 : Math.max(1, Math.min(parsedLimit, 100));
+
+    console.log(`Quest history request - userId: ${userId}, filter: ${filter}, limit: ${validLimit}`);
+
+    // Get quest history based on filter
+    let history;
+    if (filter === 'completed') {
+      history = await questManager.getUserCompletedQuests(userId, validLimit);
+    } else if (filter === 'favorites') {
+      // TODO: Implement favorites functionality
+      history = [];
+    } else {
+      // Get all quest assignments (completed and incomplete)
+      history = await questManager.getUserQuestHistory(userId, validLimit);
+    }
+
+    res.json({
+      return_code: 'SUCCESS',
+      message: 'Quest history retrieved successfully',
+      history: history
+    });
+
+  } catch (error) {
+    console.error('Quest history error:', error);
+    res.status(500).json({
+      return_code: 'SERVER_ERROR',
+      message: 'Failed to retrieve quest details'
+    });
+  }
+});
+
 // GET /api/quests/:questId - Get quest details by ID
 router.get('/:questId', authMiddleware.requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { questId } = req.params;
 
+    // Validate quest ID
+    const parsedQuestId = parseInt(questId);
+    if (isNaN(parsedQuestId) || parsedQuestId <= 0) {
+      return res.status(400).json({
+        return_code: 'INVALID_QUEST_ID',
+        message: 'Invalid quest ID provided'
+      });
+    }
+
+    console.log(`Getting quest details for questId: ${parsedQuestId}`);
+
     // Get quest details
-    const quest = await questManager.getQuestById(parseInt(questId));
+    const quest = await questManager.getQuestById(parsedQuestId);
 
     if (!quest) {
       return res.status(404).json({

@@ -980,6 +980,66 @@ questManager.uncompleteQuest = async function(userId, assignmentId) {
     }
   };
 
+// Add quest history methods to questManager
+questManager.getUserQuestHistory = async function(userId, limit = 50) {
+  const text = `
+    SELECT
+      uqa.id as assignment_id,
+      uqa.quest_id,
+      uqa.assignment_type,
+      uqa.assigned_date,
+      uqa.is_completed,
+      uqa.completed_at,
+      q.title,
+      q.description,
+      q.points,
+      q.difficulty_level,
+      qc.name as category_name,
+      uqc.completion_notes,
+      uqc.points_earned,
+      uqc.completed_at as completion_date
+    FROM user_quest_assignment uqa
+    JOIN quest q ON uqa.quest_id = q.id
+    JOIN quest_category qc ON q.category_id = qc.id
+    LEFT JOIN user_quest_completion uqc ON uqa.id = uqc.assignment_id
+    WHERE uqa.user_id = $1
+    ORDER BY
+      CASE WHEN uqa.is_completed THEN uqa.completed_at ELSE uqa.assigned_date END DESC
+    LIMIT $2
+  `;
+  const result = await query(text, [userId, limit]);
+  return result.rows;
+};
+
+questManager.getUserCompletedQuests = async function(userId, limit = 50) {
+  const text = `
+    SELECT
+      uqa.id as assignment_id,
+      uqa.quest_id,
+      uqa.assignment_type,
+      uqa.assigned_date,
+      uqa.is_completed,
+      uqa.completed_at,
+      q.title,
+      q.description,
+      q.points,
+      q.difficulty_level,
+      qc.name as category_name,
+      uqc.completion_notes,
+      uqc.points_earned,
+      uqc.completed_at as completion_date
+    FROM user_quest_assignment uqa
+    JOIN quest q ON uqa.quest_id = q.id
+    JOIN quest_category qc ON q.category_id = qc.id
+    JOIN user_quest_completion uqc ON uqa.id = uqc.assignment_id
+    WHERE uqa.user_id = $1 AND uqa.is_completed = true
+    ORDER BY uqa.completed_at DESC
+    LIMIT $2
+  `;
+  const result = await query(text, [userId, limit]);
+  return result.rows;
+};
+
 module.exports = {
   query,
   userAuth,

@@ -20,20 +20,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isEditingName = false;
   String? _selectedProfileIcon; // Local state for profile icon
 
-  // Available profile icons - Questie profile pictures
+  // Available profile icons - Only existing Questie profile pictures
   final List<Map<String, dynamic>> _profileIcons = [
     {'type': 'asset', 'value': 'assets/icons/questie-pic1.png', 'name': 'Questie 1'},
     {'type': 'asset', 'value': 'assets/icons/questie-pic2.png', 'name': 'Questie 2'},
     {'type': 'asset', 'value': 'assets/icons/questie-pic3.png', 'name': 'Questie 3'},
     {'type': 'asset', 'value': 'assets/icons/questie-pic4.png', 'name': 'Questie 4'},
     {'type': 'asset', 'value': 'assets/icons/questie-pic5.png', 'name': 'Questie 5'},
-    {'type': 'asset', 'value': 'assets/icons/questie-pic6.png', 'name': 'Questie 6'},
-    {'type': 'asset', 'value': 'assets/icons/questie-pic7.png', 'name': 'Questie 7'},
-    {'type': 'asset', 'value': 'assets/icons/questie-pic8.png', 'name': 'Questie 8'},
-    {'type': 'asset', 'value': 'assets/icons/questie-pic9.png', 'name': 'Questie 9'},
-    {'type': 'asset', 'value': 'assets/icons/questie-pic10.png', 'name': 'Questie 10'},
-    {'type': 'asset', 'value': 'assets/icons/questie-pic11.png', 'name': 'Questie 11'},
-    {'type': 'asset', 'value': 'assets/icons/questie-pic12.png', 'name': 'Questie 12'},
   ];
 
   @override
