@@ -20,14 +20,14 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
     _loadBadges();
   }
 
-  Future<void> _loadBadges() async {
+  Future<void> _loadBadges({bool forceRefresh = false}) async {
     try {
       setState(() {
         _isLoading = true;
         _error = null;
       });
 
-      final result = await UserService.getBadges();
+      final result = await UserService.getBadges(forceRefresh: forceRefresh);
       if (result['success']) {
         setState(() {
           _badges = List<Map<String, dynamic>>.from(result['badges'] ?? []);
@@ -73,9 +73,10 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
   Widget _buildHeader(BuildContext context) {
     final earnedCount = _badges.where((badge) => badge['is_earned'] == true).length;
     final totalCount = _badges.length;
+    final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32), // More generous padding
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -83,29 +84,31 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
             children: [
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Icons.arrow_back_rounded), // More rounded Material 3 icon
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.grey[100],
-                  foregroundColor: Colors.grey[700],
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                  padding: const EdgeInsets.all(12), // More padding
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 20), // More spacing
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Badges',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF6B8E6B),
+                        color: theme.colorScheme.primary,
+                        letterSpacing: -0.5, // Better letter spacing for Material 3
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6), // Slightly more spacing
                     Text(
                       '$earnedCount of $totalCount earned',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -113,33 +116,34 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          
-          // Progress bar
-          if (totalCount > 0) ...[
+          const SizedBox(height: 32), // More spacing
+
+          // Progress bar with Material 3 styling
+          if (totalCount > 0 && earnedCount > 0) ...[
             Container(
-              height: 8,
+              height: 10, // Slightly taller for better visibility
               decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(4),
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(5),
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: earnedCount / totalCount,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6B8E6B),
-                    borderRadius: BorderRadius.circular(4),
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(5),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12), // More spacing
             Text(
               '${((earnedCount / totalCount) * 100).toInt()}% Complete',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
+                letterSpacing: 0.1,
               ),
             ),
           ],
@@ -188,78 +192,96 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
 
   Widget _buildBadgesGrid(BuildContext context) {
     if (_badges.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.emoji_events_outlined,
-                size: 64,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No Badges Available',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.grey[600],
+      return RefreshIndicator(
+        onRefresh: () => _loadBadges(forceRefresh: true),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.emoji_events_outlined,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No Badges Available',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Complete quests to start earning badges!\nPull down to refresh.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[500],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Complete quests to start earning badges!',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         ),
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        children: [
-          // Earned badges section
-          if (_badges.any((badge) => badge['is_earned'] == true)) ...[
-            _buildSectionHeader(context, 'Earned', Icons.emoji_events),
-            const SizedBox(height: 16),
-            _buildBadgesSection(context, _badges.where((badge) => badge['is_earned'] == true).toList()),
-            const SizedBox(height: 32),
+    return RefreshIndicator(
+      onRefresh: () => _loadBadges(forceRefresh: true),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(32, 0, 32, 32), // More generous padding
+        child: Column(
+          children: [
+            // Earned badges section
+            if (_badges.any((badge) => badge['is_earned'] == true)) ...[
+              _buildSectionHeader(context, 'Earned', Icons.emoji_events_rounded),
+              const SizedBox(height: 24), // More spacing
+              _buildBadgesSection(context, _badges.where((badge) => badge['is_earned'] == true).toList()),
+              const SizedBox(height: 48), // Much more spacing between sections
+            ],
+
+            // Locked badges section
+            if (_badges.any((badge) => badge['is_earned'] != true)) ...[
+              _buildSectionHeader(context, 'Locked', Icons.lock_outline_rounded),
+              const SizedBox(height: 24), // More spacing
+              _buildBadgesSection(context, _badges.where((badge) => badge['is_earned'] != true).toList()),
+            ],
           ],
-          
-          // Locked badges section
-          if (_badges.any((badge) => badge['is_earned'] != true)) ...[
-            _buildSectionHeader(context, 'Locked', Icons.lock_outline),
-            const SizedBox(height: 16),
-            _buildBadgesSection(context, _badges.where((badge) => badge['is_earned'] != true).toList()),
-          ],
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: const Color(0xFF6B8E6B),
-          size: 20,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: const Color(0xFF6B8E6B),
-            fontWeight: FontWeight.w600,
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4), // Slight indent for alignment
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: theme.colorScheme.primary,
+            size: 22, // Slightly larger for Material 3
           ),
-        ),
-      ],
+          const SizedBox(width: 12), // More spacing
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.1, // Better letter spacing for Material 3
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -268,10 +290,10 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
+        crossAxisCount: 3, // Three badges in a row
+        crossAxisSpacing: 20, // More spacing between badges
+        mainAxisSpacing: 24, // More vertical spacing
+        childAspectRatio: 0.85, // Adjusted for consistent sizing
       ),
       itemCount: badges.length,
       itemBuilder: (context, index) {
@@ -286,115 +308,99 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
     final progress = badge['progress_value'] ?? 0;
     final requirement = badge['requirement_value'] ?? 1;
     final progressPercent = requirement > 0 ? (progress / requirement).clamp(0.0, 1.0) : 0.0;
+    final theme = Theme.of(context);
 
     return GestureDetector(
       onTap: () => _showBadgeDetails(context, badge),
       child: Container(
+        // Ensure consistent sizing for all badges
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24), // More rounded for Material 3
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
+              color: theme.colorScheme.shadow.withValues(alpha: 0.08),
+              blurRadius: 12,
               offset: const Offset(0, 4),
+              spreadRadius: 0,
             ),
           ],
         ),
         child: Stack(
           children: [
-            // Main badge container (scout badge shape)
+            // Main badge container with Material 3 styling
             Container(
+              width: double.infinity,
+              height: double.infinity,
               decoration: BoxDecoration(
-                gradient: isEarned
-                    ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF8FBC8F), // Light green
-                          Color(0xFF6B8E6B), // Main green
-                          Color(0xFF556B55), // Darker green
-                        ],
-                      )
-                    : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.grey[300]!,
-                          Colors.grey[400]!,
-                          Colors.grey[500]!,
-                        ],
-                      ),
-                borderRadius: BorderRadius.circular(20),
+                color: isEarned
+                    ? theme.colorScheme.primaryContainer
+                    : theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isEarned
-                      ? const Color(0xFF4A6741)
-                      : Colors.grey[600]!,
-                  width: 3,
+                      ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                      : theme.colorScheme.outline.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20), // More generous padding
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Badge icon with circular background
+                    // Badge icon with Material 3 styling
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 48, // Consistent size for 3-column layout
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isEarned
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.surfaceContainerHigh,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isEarned
-                              ? const Color(0xFF4A6741)
-                              : Colors.grey[600]!,
-                          width: 2,
-                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 4,
+                            color: theme.colorScheme.shadow.withValues(alpha: 0.1),
+                            blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Icon(
-                        _getBadgeIcon(badge['icon']),
+                        _getBadgeIconByCategory(badge['category'], badge['icon']),
                         color: isEarned
-                            ? const Color(0xFF6B8E6B)
-                            : Colors.grey[500],
-                        size: 28,
+                            ? theme.colorScheme.onPrimary
+                            : theme.colorScheme.onSurfaceVariant,
+                        size: 24, // Adjusted for smaller container
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16), // More spacing
 
-                    // Badge name
-                    Text(
-                      badge['name'] ?? 'Unknown Badge',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        fontSize: 11,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            offset: const Offset(0, 1),
-                            blurRadius: 2,
-                          ),
-                        ],
+                    // Badge name with Material 3 typography - constrained to prevent overflow
+                    Flexible(
+                      child: Text(
+                        badge['name'] ?? 'Unknown Badge',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isEarned
+                              ? theme.colorScheme.onPrimaryContainer
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
 
-                    // Progress indicator for locked badges
+                    // Progress indicator for locked badges with Material 3 styling
                     if (!isEarned && progressPercent > 0) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Container(
-                        height: 3,
+                        height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: theme.colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(2),
                         ),
                         child: FractionallySizedBox(
@@ -402,17 +408,17 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
                           widthFactor: progressPercent,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: theme.colorScheme.primary,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
                         '$progress / $requirement',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
                         ),
@@ -423,36 +429,36 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
               ),
             ),
 
-            // Lock overlay for locked badges
+            // Lock overlay for locked badges with Material 3 styling
             if (!isEarned) ...[
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(20),
+                    color: theme.colorScheme.scrim.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
               ),
               Positioned(
-                top: 8,
-                right: 8,
+                top: 12,
+                right: 12,
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.red[600],
+                    color: theme.colorScheme.error,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 4,
+                        color: theme.colorScheme.shadow.withValues(alpha: 0.2),
+                        blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.lock,
-                    color: Colors.white,
-                    size: 16,
+                  child: Icon(
+                    Icons.lock_rounded, // More rounded Material 3 icon
+                    color: theme.colorScheme.onError,
+                    size: 14, // Slightly smaller for 3-column layout
                   ),
                 ),
               ),
@@ -487,6 +493,53 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
     }
   }
 
+  IconData _getBadgeIconByCategory(String? category, String? iconName) {
+    // Use different icons based on badge category for better visual distinction
+    switch (category?.toLowerCase()) {
+      case 'exploration':
+      case 'adventure':
+        return Icons.explore_rounded;
+      case 'fitness':
+      case 'health':
+      case 'exercise':
+        return Icons.fitness_center_rounded;
+      case 'social':
+      case 'community':
+      case 'friends':
+        return Icons.people_rounded;
+      case 'learning':
+      case 'education':
+      case 'knowledge':
+        return Icons.school_rounded;
+      case 'creativity':
+      case 'art':
+      case 'creative':
+        return Icons.palette_rounded;
+      case 'achievement':
+      case 'milestone':
+      case 'goal':
+        return Icons.emoji_events_rounded;
+      case 'daily':
+      case 'routine':
+      case 'habit':
+        return Icons.today_rounded;
+      case 'challenge':
+      case 'quest':
+        return Icons.flag_rounded;
+      case 'nature':
+      case 'outdoor':
+      case 'environment':
+        return Icons.nature_rounded;
+      case 'mindfulness':
+      case 'meditation':
+      case 'wellness':
+        return Icons.self_improvement_rounded;
+      default:
+        // Fallback to the original icon mapping if category doesn't match
+        return _getBadgeIcon(iconName);
+    }
+  }
+
   void _showBadgeDetails(BuildContext context, Map<String, dynamic> badge) {
     showDialog(
       context: context,
@@ -506,7 +559,7 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                _getBadgeIcon(badge['icon']),
+                _getBadgeIconByCategory(badge['category'], badge['icon']),
                 color: badge['is_earned'] == true ? Colors.white : Colors.grey[500],
                 size: 20,
               ),
