@@ -4,6 +4,7 @@ import '../../../core/router/app_router.dart';
 import '../widgets/daily_quest_card.dart';
 import '../widgets/weekly_quests_section.dart';
 import '../widgets/quick_stats_card.dart';
+import '../../../services/user_service.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +17,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _refreshCounter = 0;
 
   void _onQuestCompleted() {
+    // Clear user stats cache to force refresh
+    UserService.clearStatsCache();
+
     // Trigger a rebuild to refresh quest data
     setState(() {
       _refreshCounter++;
@@ -35,7 +39,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 16),
 
               // Progress Stats (moved to top)
-              const QuickStatsCard(),
+              QuickStatsCard(
+                key: ValueKey('quick_stats_$_refreshCounter'),
+              ),
               const SizedBox(height: 24),
 
               // Daily Quest

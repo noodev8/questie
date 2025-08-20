@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/router/app_router.dart';
 
 class BadgesSection extends StatelessWidget {
   const BadgesSection({super.key});
@@ -52,9 +53,7 @@ class BadgesSection extends StatelessWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {
-                    // TODO: Navigate to all badges
-                  },
+                  onPressed: () => AppRouter.goToBadges(context),
                   child: const Text('View All'),
                 ),
               ],
@@ -84,44 +83,130 @@ class BadgesSection extends StatelessWidget {
 
   Widget _buildBadgeItem(BuildContext context, Map<String, dynamic> badge) {
     final isEarned = badge['earned'] as bool;
-    
+
     return Container(
       decoration: BoxDecoration(
-        color: isEarned 
-            ? (badge['color'] as Color).withOpacity(0.1)
-            : Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isEarned 
-              ? (badge['color'] as Color).withOpacity(0.3)
-              : Colors.grey[300]!,
-        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
         children: [
-          Icon(
-            badge['icon'] as IconData,
-            size: 24,
-            color: isEarned 
-                ? badge['color'] as Color
-                : Colors.grey[400],
-          ),
-          const SizedBox(height: 4),
-          
-          Text(
-            badge['name'] as String,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: isEarned 
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Colors.grey[500],
+          // Main badge container (scout badge shape)
+          Container(
+            decoration: BoxDecoration(
+              gradient: isEarned
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF8FBC8F), // Light green
+                        Color(0xFF6B8E6B), // Main green
+                        Color(0xFF556B55), // Darker green
+                      ],
+                    )
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.grey[300]!,
+                        Colors.grey[400]!,
+                        Colors.grey[500]!,
+                      ],
+                    ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isEarned
+                    ? const Color(0xFF4A6741)
+                    : Colors.grey[600]!,
+                width: 2,
+              ),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Badge icon with circular background
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isEarned
+                            ? const Color(0xFF4A6741)
+                            : Colors.grey[600]!,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Icon(
+                      badge['icon'] as IconData,
+                      color: isEarned
+                          ? const Color(0xFF6B8E6B)
+                          : Colors.grey[500],
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Badge name
+                  Text(
+                    badge['name'] as String,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          offset: const Offset(0, 1),
+                          blurRadius: 1,
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
           ),
+
+          // Lock overlay for locked badges
+          if (!isEarned) ...[
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: Colors.red[600],
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock,
+                  color: Colors.white,
+                  size: 10,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

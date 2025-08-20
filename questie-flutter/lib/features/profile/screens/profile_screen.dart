@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
+import '../widgets/stats_overview.dart';
+import '../widgets/badges_section.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -161,12 +163,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               _buildAccountInfo(context, user, theme),
               const SizedBox(height: 32),
 
-              // Stats overview (placeholder)
-              _buildStatsOverview(context, theme),
+              // Stats overview
+              const StatsOverview(),
               const SizedBox(height: 32),
 
-              // Level progress (placeholder)
-              _buildLevelProgress(context, theme),
+              // Badges section
+              const BadgesSection(),
               const SizedBox(height: 32),
 
               // Logout Button

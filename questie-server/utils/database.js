@@ -424,6 +424,103 @@ const questManager = {
     return result.rowCount;
   },
 
+  // Get or create user stats
+  async getUserStats(userId) {
+    // First try to get existing stats
+    let text = `
+      SELECT * FROM user_stats WHERE user_id = $1
+    `;
+    let result = await query(text, [userId]);
+
+    if (result.rows.length === 0) {
+      // Create initial stats record
+      text = `
+        INSERT INTO user_stats (user_id, total_quests_completed, total_points, current_streak_days, longest_streak_days)
+        VALUES ($1, 0, 0, 0, 0)
+        RETURNING *
+      `;
+      result = await query(text, [userId]);
+    }
+
+    return result.rows[0];
+  },
+
+  // Update user stats after quest completion
+  async updateUserStats(userId, pointsEarned) {
+    console.log(`📊 Starting updateUserStats for user ${userId}, points: ${pointsEarned}`);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get current stats
+      const statsText = `
+        SELECT * FROM user_stats WHERE user_id = $1
+      `;
+      let statsResult = await client.query(statsText, [userId]);
+
+      if (statsResult.rows.length === 0) {
+        // Create initial stats if they don't exist
+        const createText = `
+          INSERT INTO user_stats (user_id, total_quests_completed, total_points, current_streak_days, longest_streak_days)
+          VALUES ($1, 0, 0, 0, 0)
+          RETURNING *
+        `;
+        statsResult = await client.query(createText, [userId]);
+      }
+
+      const currentStats = statsResult.rows[0];
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+      // Calculate new streak
+      let newCurrentStreak = currentStats.current_streak_days;
+      let newLongestStreak = currentStats.longest_streak_days;
+
+      // Check if user completed a quest yesterday or today
+      const lastCompletedStr = currentStats.last_quest_completed_at
+        ? currentStats.last_quest_completed_at.toISOString().split('T')[0]
+        : null;
+
+      if (lastCompletedStr === yesterdayStr) {
+        // Continuing streak
+        newCurrentStreak += 1;
+      } else if (lastCompletedStr !== today) {
+        // Starting new streak
+        newCurrentStreak = 1;
+      }
+      // If lastCompletedStr === today, streak stays the same (already completed today)
+
+      // Update longest streak if current is higher
+      if (newCurrentStreak > newLongestStreak) {
+        newLongestStreak = newCurrentStreak;
+      }
+
+      // Update stats
+      const updateText = `
+        UPDATE user_stats
+        SET total_quests_completed = total_quests_completed + 1,
+            total_points = total_points + $2,
+            current_streak_days = $3,
+            longest_streak_days = $4,
+            last_quest_completed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $1
+        RETURNING *
+      `;
+      const updateResult = await client.query(updateText, [userId, pointsEarned, newCurrentStreak, newLongestStreak]);
+
+      await client.query('COMMIT');
+      return updateResult.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   // Complete a quest
   async completeQuest(userId, assignmentId, completionNotes = null) {
     const client = await pool.connect();
@@ -462,6 +559,11 @@ const questManager = {
         userId, assignment.quest_id, assignmentId, completionNotes, points
       ]);
 
+      // Update user stats
+      console.log(`🎯 Updating user stats for user ${userId} with ${points} points`);
+      await questManager.updateUserStats(userId, points);
+      console.log(`✅ User stats updated successfully`);
+
       await client.query('COMMIT');
       return {
         assignment,
@@ -477,9 +579,54 @@ const questManager = {
   }
 };
 
+// Badge management functions
+const badgeManager = {
+  // Get all badges with user's progress
+  async getAllBadgesForUser(userId) {
+    const text = `
+      SELECT b.id, b.name, b.description, b.icon, b.requirement_type, b.requirement_value,
+             ub.id as user_badge_id, ub.progress_value, ub.is_completed, ub.earned_at,
+             qc.name as category_name
+      FROM badge b
+      LEFT JOIN quest_category qc ON b.category_id = qc.id
+      LEFT JOIN user_badge ub ON b.id = ub.badge_id AND ub.user_id = $1
+      ORDER BY b.requirement_type, b.requirement_value, b.name
+    `;
+    const result = await query(text, [userId]);
+    return result.rows;
+  },
+
+  // Get user's earned badges
+  async getUserEarnedBadges(userId) {
+    const text = `
+      SELECT b.id, b.name, b.description, b.icon, b.requirement_type, b.requirement_value,
+             ub.progress_value, ub.earned_at, qc.name as category_name
+      FROM badge b
+      JOIN user_badge ub ON b.id = ub.badge_id
+      LEFT JOIN quest_category qc ON b.category_id = qc.id
+      WHERE ub.user_id = $1 AND ub.is_completed = true
+      ORDER BY ub.earned_at DESC
+    `;
+    const result = await query(text, [userId]);
+    return result.rows;
+  },
+
+  // Get badge count for user
+  async getUserBadgeCount(userId) {
+    const text = `
+      SELECT COUNT(*) as badge_count
+      FROM user_badge
+      WHERE user_id = $1 AND is_completed = true
+    `;
+    const result = await query(text, [userId]);
+    return parseInt(result.rows[0].badge_count) || 0;
+  }
+};
+
 module.exports = {
   query,
   userAuth,
   questManager,
+  badgeManager,
   pool
 };
