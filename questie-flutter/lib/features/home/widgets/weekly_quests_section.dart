@@ -215,10 +215,8 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
           });
         }
 
-        // Call the callback to notify parent widget
-        if (widget.onQuestCompleted != null) {
-          widget.onQuestCompleted!();
-        }
+        // Don't call onQuestCompleted to prevent screen jumping
+        // The local state is already updated, and stats cache is cleared
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -309,10 +307,9 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
     // Clear user stats cache to ensure fresh data
     UserService.clearStatsCache();
 
-    // Update stats without causing scroll issues
-    if (widget.onQuestCompleted != null) {
-      widget.onQuestCompleted!();
-    }
+    // Don't call onQuestCompleted here to prevent screen jumping
+    // The local state is already updated, and stats cache is cleared
+    // Parent will get updated stats when it naturally refreshes
 
     // No snackbar messages - just animation and DB update
     // Note: Quest state is already updated in _completeQuestWithAnimation

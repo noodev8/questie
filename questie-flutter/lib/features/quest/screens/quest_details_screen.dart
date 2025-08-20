@@ -555,7 +555,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
               onPressed: _isProcessing
                   ? null
                   : (isCompleted
-                      ? () => _showUnmarkDialog(context)
+                      ? () => _uncompleteQuest()
                       : () => _showCompletionDialog(context)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isCompleted
@@ -659,31 +659,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     );
   }
 
-  void _showUnmarkDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Unmark Quest'),
-        content: const Text('Are you sure you want to unmark this quest as completed? This will deduct the points you earned.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop(); // Close dialog
-              await _uncompleteQuest();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange[700],
-            ),
-            child: const Text('Unmark'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Future<void> _uncompleteQuest() async {
     if (_quest == null || _isProcessing) return;
