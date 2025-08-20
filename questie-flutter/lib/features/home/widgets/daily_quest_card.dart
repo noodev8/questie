@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../services/quest_service.dart';
 import '../../../services/user_service.dart';
 import '../../../shared/widgets/quest_completion_indicator.dart';
+import '../../../shared/widgets/skeleton_loading.dart';
 
 class DailyQuestCard extends StatefulWidget {
   final VoidCallback? onQuestCompleted;
@@ -295,26 +296,7 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
   }
 
   Widget _buildLoadingCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
-    );
+    return const QuestCardSkeleton();
   }
 
   Widget _buildErrorCard(BuildContext context) {

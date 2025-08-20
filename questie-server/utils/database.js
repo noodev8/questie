@@ -5,6 +5,7 @@
 // =======================================================================================================================================
 
 const { Pool } = require('pg');
+const { cacheHelpers } = require('./cache');
 
 // Database connection pool
 const pool = new Pool({
@@ -273,9 +274,15 @@ const questManager = {
     return result.rows[0];
   },
 
-  // Get user's current daily quest
+  // Get user's current daily quest (with caching)
   async getUserDailyQuest(userId, date = new Date()) {
     const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    // Check cache first
+    const cached = cacheHelpers.getDailyQuest(userId, dateStr);
+    if (cached) {
+      return cached;
+    }
 
     const text = `
       SELECT uqa.id as assignment_id, uqa.quest_id, uqa.assigned_date, uqa.is_completed,
@@ -291,10 +298,17 @@ const questManager = {
       LIMIT 1
     `;
     const result = await query(text, [userId, dateStr]);
-    return result.rows[0];
+    const quest = result.rows[0];
+
+    // Cache the result
+    if (quest) {
+      cacheHelpers.setDailyQuest(userId, dateStr, quest);
+    }
+
+    return quest;
   },
 
-  // Get user's current weekly quests
+  // Get user's current weekly quests (with caching)
   async getUserWeeklyQuests(userId, weekStart = null) {
     if (!weekStart) {
       // Calculate Monday of current week
@@ -305,6 +319,12 @@ const questManager = {
       weekStart.setDate(now.getDate() - daysToMonday);
     }
     const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    // Check cache first
+    const cached = cacheHelpers.getWeeklyQuests(userId, weekStartStr);
+    if (cached) {
+      return cached;
+    }
 
     const text = `
       SELECT uqa.id as assignment_id, uqa.quest_id, uqa.assigned_date, uqa.is_completed,
@@ -320,7 +340,14 @@ const questManager = {
       LIMIT 5
     `;
     const result = await query(text, [userId, weekStartStr]);
-    return result.rows;
+    const quests = result.rows;
+
+    // Cache the result
+    if (quests && quests.length > 0) {
+      cacheHelpers.setWeeklyQuests(userId, weekStartStr, quests);
+    }
+
+    return quests;
   },
 
   // Assign daily quest to user
@@ -675,6 +702,10 @@ const questManager = {
       const totalTime = Date.now() - startTime;
       console.log(`✅ Quest completion finished in ${totalTime}ms total`);
 
+      // Clear user cache after quest completion
+      cacheHelpers.clearUserCache(userId);
+      console.log(`📦 Cache cleared for user ${userId} after quest completion`);
+
       return {
         assignment,
         completion: completionResult.rows[0],
@@ -921,6 +952,191 @@ const badgeManager = {
     }
   },
 
+  // Optimized badge checking with single query (NEW VERSION)
+  async checkAndAwardBadgesOptimized(userId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get all user data in one optimized query
+      const userDataText = `
+        WITH user_stats_data AS (
+          SELECT total_quests_completed, total_points, current_streak_days, longest_streak_days
+          FROM user_stats
+          WHERE user_id = $1
+        ),
+        quest_completion_stats AS (
+          SELECT
+            COUNT(*) as total_completed,
+            COUNT(*) FILTER (WHERE LOWER(qc.name) = 'fitness') as fitness_count,
+            COUNT(*) FILTER (WHERE LOWER(qc.name) = 'social') as social_count,
+            COUNT(*) FILTER (WHERE LOWER(qc.name) = 'creative') as creative_count,
+            COUNT(*) FILTER (WHERE LOWER(qc.name) = 'nature') as nature_count,
+            COUNT(*) FILTER (WHERE LOWER(qc.name) = 'learning') as learning_count,
+            COUNT(*) FILTER (WHERE LOWER(qc.name) = 'kindness') as kindness_count,
+            COUNT(*) FILTER (WHERE completed_time BETWEEN '06:00:00' AND '09:00:00') as early_bird_count,
+            COUNT(*) FILTER (WHERE completed_day_of_week IN (0, 6)) as weekend_count,
+            COUNT(*) FILTER (WHERE completed_day_of_week IN (1, 2, 3, 4, 5)) as weekday_count,
+            COUNT(*) FILTER (WHERE completed_season = 'spring') as spring_count,
+            COUNT(*) FILTER (WHERE completed_season = 'summer') as summer_count,
+            COUNT(*) FILTER (WHERE completed_season = 'autumn') as autumn_count,
+            COUNT(*) FILTER (WHERE completed_season = 'winter') as winter_count
+          FROM user_quest_assignment uqa
+          JOIN quest q ON uqa.quest_id = q.id
+          JOIN quest_category qc ON q.category_id = qc.id
+          WHERE uqa.user_id = $1 AND uqa.is_completed = true
+        )
+        SELECT
+          COALESCE(us.total_quests_completed, 0) as total_quests_completed,
+          COALESCE(us.total_points, 0) as total_points,
+          COALESCE(us.current_streak_days, 0) as current_streak_days,
+          COALESCE(us.longest_streak_days, 0) as longest_streak_days,
+          COALESCE(qcs.total_completed, 0) as total_completed,
+          COALESCE(qcs.fitness_count, 0) as fitness_count,
+          COALESCE(qcs.social_count, 0) as social_count,
+          COALESCE(qcs.creative_count, 0) as creative_count,
+          COALESCE(qcs.nature_count, 0) as nature_count,
+          COALESCE(qcs.learning_count, 0) as learning_count,
+          COALESCE(qcs.kindness_count, 0) as kindness_count,
+          COALESCE(qcs.early_bird_count, 0) as early_bird_count,
+          COALESCE(qcs.weekend_count, 0) as weekend_count,
+          COALESCE(qcs.weekday_count, 0) as weekday_count,
+          COALESCE(qcs.spring_count, 0) as spring_count,
+          COALESCE(qcs.summer_count, 0) as summer_count,
+          COALESCE(qcs.autumn_count, 0) as autumn_count,
+          COALESCE(qcs.winter_count, 0) as winter_count
+        FROM user_stats_data us
+        FULL OUTER JOIN quest_completion_stats qcs ON true
+      `;
+      const userDataResult = await client.query(userDataText, [userId]);
+      const userData = userDataResult.rows[0];
+
+      if (!userData) {
+        console.log('No user data found for user:', userId);
+        await client.query('ROLLBACK');
+        return [];
+      }
+
+      // Get all badges that user hasn't completed yet
+      const badgesText = `
+        SELECT b.id, b.name, b.requirement_type, b.requirement_value, b.requirement_category,
+               b.requirement_time_start, b.requirement_time_end,
+               b.requirement_days, b.requirement_season, b.requirement_date_start,
+               b.requirement_date_end, b.requirement_recurring
+        FROM badge b
+        LEFT JOIN user_badge ub ON b.id = ub.badge_id AND ub.user_id = $1
+        WHERE (ub.id IS NULL OR ub.is_completed = false)
+        ORDER BY b.requirement_type, b.requirement_value
+      `;
+      const badgesResult = await client.query(badgesText, [userId]);
+      const newlyEarnedBadges = [];
+
+      // Check each badge requirement using pre-computed data
+      for (const badge of badgesResult.rows) {
+        let shouldAward = false;
+        let progressValue = 0;
+
+        switch (badge.requirement_type) {
+          case 'quests_completed':
+            progressValue = userData.total_quests_completed;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'total_points':
+            progressValue = userData.total_points;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'streak_days':
+            progressValue = userData.current_streak_days;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'category_quest':
+            const categoryName = badge.requirement_category?.toLowerCase();
+            if (categoryName) {
+              progressValue = userData[`${categoryName}_count`] || 0;
+              shouldAward = progressValue >= badge.requirement_value;
+            }
+            break;
+          case 'time_of_day_quest':
+            progressValue = userData.early_bird_count;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'day_of_week_quest':
+            if (badge.requirement_days === 'weekend') {
+              progressValue = userData.weekend_count;
+            } else if (badge.requirement_days === 'weekday') {
+              progressValue = userData.weekday_count;
+            }
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'seasonal_quest':
+            const season = badge.requirement_season?.toLowerCase();
+            if (season) {
+              progressValue = userData[`${season}_count`] || 0;
+              shouldAward = progressValue >= badge.requirement_value;
+            }
+            break;
+          default:
+            console.log(`Unknown badge requirement type: ${badge.requirement_type}`);
+            continue;
+        }
+
+        if (shouldAward) {
+          // Check if badge already exists for this user
+          const existingBadgeText = `
+            SELECT id, is_completed FROM user_badge
+            WHERE user_id = $1 AND badge_id = $2
+          `;
+          const existingResult = await client.query(existingBadgeText, [userId, badge.id]);
+
+          if (existingResult.rows.length > 0) {
+            // Update existing record
+            const existingBadge = existingResult.rows[0];
+            if (!existingBadge.is_completed) {
+              const updateText = `
+                UPDATE user_badge
+                SET progress_value = $3, is_completed = true, earned_at = CURRENT_TIMESTAMP
+                WHERE user_id = $1 AND badge_id = $2
+                RETURNING *
+              `;
+              const updateResult = await client.query(updateText, [userId, badge.id, progressValue]);
+              newlyEarnedBadges.push({
+                ...badge,
+                progress_value: progressValue,
+                earned_at: updateResult.rows[0].earned_at
+              });
+              console.log(`✅ Badge awarded: ${badge.name} to user ${userId}`);
+            }
+          } else {
+            // Insert new record
+            const insertText = `
+              INSERT INTO user_badge (user_id, badge_id, progress_value, is_completed, earned_at)
+              VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP)
+              RETURNING *
+            `;
+            const insertResult = await client.query(insertText, [userId, badge.id, progressValue]);
+            newlyEarnedBadges.push({
+              ...badge,
+              progress_value: progressValue,
+              earned_at: insertResult.rows[0].earned_at
+            });
+            console.log(`✅ Badge awarded: ${badge.name} to user ${userId}`);
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+      console.log(`⚡ Badge checking completed for user ${userId}. Awarded ${newlyEarnedBadges.length} badges.`);
+      return newlyEarnedBadges;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('❌ Error in badge checking:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   // Award a specific badge to a user
   async awardBadge(userId, badgeId) {
     // Check if badge already exists for this user
@@ -1138,8 +1354,8 @@ questManager.uncompleteQuest = async function(userId, assignmentId) {
     }
   };
 
-// Add quest history methods to questManager
-questManager.getUserQuestHistory = async function(userId, limit = 50) {
+// Add quest history methods to questManager with pagination
+questManager.getUserQuestHistory = async function(userId, limit = 20, offset = 0) {
   const text = `
     SELECT
       uqa.id as assignment_id,
@@ -1163,13 +1379,23 @@ questManager.getUserQuestHistory = async function(userId, limit = 50) {
     WHERE uqa.user_id = $1
     ORDER BY
       CASE WHEN uqa.is_completed THEN uqa.completed_at ELSE uqa.assigned_date END DESC
-    LIMIT $2
+    LIMIT $2 OFFSET $3
   `;
-  const result = await query(text, [userId, limit]);
+  const result = await query(text, [userId, limit, offset]);
   return result.rows;
 };
 
-questManager.getUserCompletedQuests = async function(userId, limit = 50) {
+questManager.getUserQuestHistoryCount = async function(userId) {
+  const text = `
+    SELECT COUNT(*) as total
+    FROM user_quest_assignment uqa
+    WHERE uqa.user_id = $1
+  `;
+  const result = await query(text, [userId]);
+  return parseInt(result.rows[0].total) || 0;
+};
+
+questManager.getUserCompletedQuests = async function(userId, limit = 20, offset = 0) {
   const text = `
     SELECT
       uqa.id as assignment_id,
@@ -1192,10 +1418,20 @@ questManager.getUserCompletedQuests = async function(userId, limit = 50) {
     JOIN user_quest_completion uqc ON uqa.id = uqc.assignment_id
     WHERE uqa.user_id = $1 AND uqa.is_completed = true
     ORDER BY uqa.completed_at DESC
-    LIMIT $2
+    LIMIT $2 OFFSET $3
   `;
-  const result = await query(text, [userId, limit]);
+  const result = await query(text, [userId, limit, offset]);
   return result.rows;
+};
+
+questManager.getUserCompletedQuestsCount = async function(userId) {
+  const text = `
+    SELECT COUNT(*) as total
+    FROM user_quest_assignment uqa
+    WHERE uqa.user_id = $1 AND uqa.is_completed = true
+  `;
+  const result = await query(text, [userId]);
+  return parseInt(result.rows[0].total) || 0;
 };
 
 module.exports = {

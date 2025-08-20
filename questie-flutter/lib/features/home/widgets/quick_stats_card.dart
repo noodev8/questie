@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/user_service.dart';
+import '../../../shared/widgets/skeleton_loading.dart';
 
 class QuickStatsCard extends ConsumerStatefulWidget {
   const QuickStatsCard({super.key});
@@ -79,12 +80,7 @@ class _QuickStatsCardState extends ConsumerState<QuickStatsCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _isLoading
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
+                ? const StatsCardSkeleton()
                 : Row(
                     children: [
                       Expanded(

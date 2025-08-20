@@ -320,10 +320,11 @@ class QuestService {
     return '${hours}h ${remainingMinutes}m';
   }
 
-  // Get quest history
-  static Future<List<Map<String, dynamic>>?> getQuestHistory({
+  // Get quest history with pagination
+  static Future<Map<String, dynamic>?> getQuestHistory({
     String? filter, // 'all', 'completed', 'favorites'
-    int limit = 50,
+    int limit = 20,
+    int offset = 0,
   }) async {
     try {
       final token = AuthService.currentToken;
@@ -333,6 +334,7 @@ class QuestService {
 
       final queryParams = <String, String>{
         'limit': limit.toString(),
+        'offset': offset.toString(),
       };
       if (filter != null && filter != 'all') {
         queryParams['filter'] = filter;
@@ -354,7 +356,10 @@ class QuestService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['return_code'] == 'SUCCESS') {
-        return List<Map<String, dynamic>>.from(data['history']);
+        return {
+          'history': List<Map<String, dynamic>>.from(data['history'] ?? []),
+          'pagination': data['pagination'] ?? {},
+        };
       } else {
         print('Quest history API error: ${data['message']}'); // Debug
         throw Exception(data['message'] ?? 'Failed to get quest history');

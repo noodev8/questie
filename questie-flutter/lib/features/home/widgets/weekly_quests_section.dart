@@ -5,6 +5,7 @@ import '../../../services/quest_service.dart';
 import '../../../services/user_service.dart';
 import 'progress_bar_widget.dart';
 import '../../../shared/widgets/quest_completion_indicator.dart';
+import '../../../shared/widgets/skeleton_loading.dart';
 
 class WeeklyQuestsSection extends StatefulWidget {
   final VoidCallback? onQuestCompleted;
@@ -318,26 +319,7 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
 
 
   Widget _buildLoadingCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
-    );
+    return const WeeklyQuestsSkeleton();
   }
 
   Widget _buildErrorCard(BuildContext context) {

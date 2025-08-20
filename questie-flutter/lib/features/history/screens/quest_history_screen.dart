@@ -28,21 +28,36 @@ class _QuestHistoryScreenState extends ConsumerState<QuestHistoryScreen> {
     });
 
     try {
-      final history = await QuestService.getQuestHistory(
+      final result = await QuestService.getQuestHistory(
         filter: _selectedFilter,
         limit: 50,
       );
 
-      print('Quest history loaded: ${history?.length ?? 0} items'); // Debug
-      if (history != null && history.isNotEmpty) {
-        print('First item: ${history.first}'); // Debug
-      }
+      if (result != null) {
+        final history = result['history'] as List<Map<String, dynamic>>?;
+        final pagination = result['pagination'] as Map<String, dynamic>?;
 
-      if (mounted) {
-        setState(() {
-          _questHistory = history ?? [];
-          _isLoading = false;
-        });
+        print('Quest history loaded: ${history?.length ?? 0} items'); // Debug
+        if (history != null && history.isNotEmpty) {
+          print('First item: ${history.first}'); // Debug
+        }
+        if (pagination != null) {
+          print('Pagination: $pagination'); // Debug
+        }
+
+        if (mounted) {
+          setState(() {
+            _questHistory = history ?? [];
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _questHistory = [];
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {

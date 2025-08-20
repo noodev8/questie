@@ -355,41 +355,56 @@ router.post('/weekly/reroll', authMiddleware.requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/quests/history - Get user's quest history (MUST come before /:questId)
+// GET /api/quests/history - Get user's quest history with pagination (MUST come before /:questId)
 router.get('/history', authMiddleware.requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { filter = 'all', limit = '50' } = req.query;
+    const { filter = 'all', limit = '20', offset = '0' } = req.query;
 
-    // Parse and validate limit parameter
+    // Parse and validate parameters
     const parsedLimit = parseInt(limit);
-    const validLimit = isNaN(parsedLimit) ? 50 : Math.max(1, Math.min(parsedLimit, 100));
+    const parsedOffset = parseInt(offset);
+    const validLimit = isNaN(parsedLimit) ? 20 : Math.max(1, Math.min(parsedLimit, 50)); // Reduced max limit
+    const validOffset = isNaN(parsedOffset) ? 0 : Math.max(0, parsedOffset);
 
-    console.log(`Quest history request - userId: ${userId}, filter: ${filter}, limit: ${validLimit}`);
+    console.log(`Quest history request - userId: ${userId}, filter: ${filter}, limit: ${validLimit}, offset: ${validOffset}`);
 
-    // Get quest history based on filter
+    // Get quest history based on filter with pagination
     let history;
+    let totalCount = 0;
+
     if (filter === 'completed') {
-      history = await questManager.getUserCompletedQuests(userId, validLimit);
+      history = await questManager.getUserCompletedQuests(userId, validLimit, validOffset);
+      totalCount = await questManager.getUserCompletedQuestsCount(userId);
     } else if (filter === 'favorites') {
       // TODO: Implement favorites functionality
       history = [];
+      totalCount = 0;
     } else {
       // Get all quest assignments (completed and incomplete)
-      history = await questManager.getUserQuestHistory(userId, validLimit);
+      history = await questManager.getUserQuestHistory(userId, validLimit, validOffset);
+      totalCount = await questManager.getUserQuestHistoryCount(userId);
     }
+
+    const hasMore = (validOffset + validLimit) < totalCount;
 
     res.json({
       return_code: 'SUCCESS',
       message: 'Quest history retrieved successfully',
-      history: history
+      history: history,
+      pagination: {
+        limit: validLimit,
+        offset: validOffset,
+        total: totalCount,
+        hasMore: hasMore
+      }
     });
 
   } catch (error) {
     console.error('Quest history error:', error);
     res.status(500).json({
       return_code: 'SERVER_ERROR',
-      message: 'Failed to retrieve quest details'
+      message: 'Failed to retrieve quest history'
     });
   }
 });
