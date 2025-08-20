@@ -271,17 +271,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // Update profile
   Future<bool> updateProfile({
     String? displayName,
+    String? profileIcon,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    // Don't set loading state for profile updates to avoid navigation issues
+    state = state.copyWith(error: null);
 
     try {
       final result = await AuthService.updateProfile(
         displayName: displayName,
+        profileIcon: profileIcon,
       );
 
       if (result['success']) {
         state = state.copyWith(
-          isLoading: false,
           user: result['user'],
           error: null,
         );

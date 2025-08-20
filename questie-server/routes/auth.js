@@ -170,7 +170,8 @@ router.post('/login', authLimiter, loginValidation, handleValidationErrors, asyn
         email: user.email,
         display_name: user.display_name,
         is_anonymous: user.is_anonymous,
-        email_verified: user.email_verified
+        email_verified: user.email_verified,
+        profile_icon: user.profile_icon
       }
     });
 
@@ -217,7 +218,8 @@ router.post('/guest-login', async (req, res) => {
         id: user.id,
         display_name: user.display_name,
         is_anonymous: user.is_anonymous,
-        email_verified: false
+        email_verified: false,
+        profile_icon: user.profile_icon
       }
     });
 
@@ -719,15 +721,20 @@ router.post('/reset-password', resetPasswordValidation, handleValidationErrors, 
 
 // POST /api/auth/update-profile (protected route)
 router.post('/update-profile', authMiddleware.requireAuth, [
-  body('display_name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Display name must be 1-100 characters')
+  body('display_name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Display name must be 1-100 characters'),
+  body('profile_icon').optional().trim().isLength({ min: 1, max: 255 }).withMessage('Profile icon must be 1-255 characters')
 ], handleValidationErrors, async (req, res) => {
   try {
-    const { display_name } = req.body;
+    const { display_name, profile_icon } = req.body;
     const userId = req.user.userId;
 
     if (display_name) {
       const capitalizedDisplayName = capitalizeFirstLetter(display_name);
       await userAuth.updateDisplayName(userId, capitalizedDisplayName);
+    }
+
+    if (profile_icon) {
+      await userAuth.updateProfileIcon(userId, profile_icon);
     }
 
     // Update last active
@@ -744,7 +751,8 @@ router.post('/update-profile', authMiddleware.requireAuth, [
         email: updatedUser.email,
         display_name: updatedUser.display_name,
         is_anonymous: updatedUser.is_anonymous,
-        email_verified: updatedUser.email_verified
+        email_verified: updatedUser.email_verified,
+        profile_icon: updatedUser.profile_icon
       }
     });
 
@@ -778,7 +786,8 @@ router.post('/verify-token', authMiddleware.optionalAuth, async (req, res) => {
         email: req.user.email,
         display_name: req.user.displayName,
         is_anonymous: req.user.isAnonymous,
-        email_verified: req.user.emailVerified
+        email_verified: req.user.emailVerified,
+        profile_icon: req.user.profileIcon
       }
     });
 

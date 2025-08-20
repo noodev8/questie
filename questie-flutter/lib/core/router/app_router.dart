@@ -16,12 +16,26 @@ import '../../screens/auth/forgot_password_screen.dart';
 import '../../screens/auth/reset_password_screen.dart';
 import '../../providers/auth_provider.dart';
 
-final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+// Custom change notifier for auth state changes
+class _AuthChangeNotifier extends ChangeNotifier {
+  final Ref _ref;
 
+  _AuthChangeNotifier(this._ref) {
+    // Listen to auth state changes and notify router
+    _ref.listen<AuthState>(authProvider, (previous, next) {
+      // Only notify on authentication status changes, not on user data updates
+      if (previous?.isAuthenticated != next.isAuthenticated) {
+        notifyListeners();
+      }
+    });
+  }
+}
+
+final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: authState.isAuthenticated ? '/home' : '/login',
+    initialLocation: '/login', // Always start at login, let redirect handle the logic
     redirect: (context, state) {
+      final authState = ref.read(authProvider); // Use read instead of watch to avoid rebuilds
       final isAuthenticated = authState.isAuthenticated;
       final isLoading = authState.isLoading;
 
@@ -46,6 +60,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       return null;
     },
+    refreshListenable: _AuthChangeNotifier(ref), // Custom notifier for auth changes
     routes: [
       // Authentication routes
       GoRoute(

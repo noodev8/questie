@@ -16,7 +16,8 @@ const jwtUtils = {
       email: user.email,
       displayName: user.display_name,
       isAnonymous: user.is_anonymous,
-      emailVerified: user.email_verified
+      emailVerified: user.email_verified,
+      profileIcon: user.profile_icon
     };
 
     return jwt.sign(payload, process.env.JWT_SECRET, {

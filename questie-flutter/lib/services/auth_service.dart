@@ -303,13 +303,15 @@ class AuthService {
   // Update profile
   static Future<Map<String, dynamic>> updateProfile({
     String? displayName,
+    String? profileIcon,
   }) async {
     try {
       final body = <String, dynamic>{};
       if (displayName != null) body['display_name'] = displayName;
+      if (profileIcon != null) body['profile_icon'] = profileIcon;
 
-      final response = await _makeRequest('/update-profile', 'POST', 
-        body: body, 
+      final response = await _makeRequest('/update-profile', 'POST',
+        body: body,
         requireAuth: true
       );
 

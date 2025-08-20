@@ -46,11 +46,11 @@ const userAuth = {
   // Create new user
   async createUser(email, displayName, passwordHash, isAnonymous = false) {
     const text = `
-      INSERT INTO app_user (email, display_name, password_hash, is_anonymous, created_at, last_active_at)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING id, email, display_name, is_anonymous, email_verified, created_at
+      INSERT INTO app_user (email, display_name, password_hash, is_anonymous, profile_icon, created_at, last_active_at)
+      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING id, email, display_name, is_anonymous, email_verified, profile_icon, created_at
     `;
-    const values = [email, displayName, passwordHash, isAnonymous];
+    const values = [email, displayName, passwordHash, isAnonymous, 'assets/icons/questie-pic1.png'];
     const result = await query(text, values);
     return result.rows[0];
   },
@@ -58,9 +58,9 @@ const userAuth = {
   // Find user by email
   async findByEmail(email) {
     const text = `
-      SELECT id, email, display_name, password_hash, is_anonymous, email_verified, 
-             auth_token, auth_token_expires, created_at, last_active_at
-      FROM app_user 
+      SELECT id, email, display_name, password_hash, is_anonymous, email_verified,
+             profile_icon, auth_token, auth_token_expires, created_at, last_active_at
+      FROM app_user
       WHERE email = $1 AND is_anonymous = false
     `;
     const result = await query(text, [email]);
@@ -70,9 +70,9 @@ const userAuth = {
   // Find user by ID
   async findById(userId) {
     const text = `
-      SELECT id, email, display_name, is_anonymous, email_verified, 
-             created_at, last_active_at
-      FROM app_user 
+      SELECT id, email, display_name, is_anonymous, email_verified,
+             profile_icon, created_at, last_active_at
+      FROM app_user
       WHERE id = $1
     `;
     const result = await query(text, [userId]);
@@ -102,9 +102,9 @@ const userAuth = {
   // Find user by auth token
   async findByAuthToken(token) {
     const text = `
-      SELECT id, email, display_name, is_anonymous, email_verified, 
-             auth_token_expires, created_at, last_active_at
-      FROM app_user 
+      SELECT id, email, display_name, is_anonymous, email_verified,
+             profile_icon, auth_token_expires, created_at, last_active_at
+      FROM app_user
       WHERE auth_token = $1
     `;
     const result = await query(text, [token]);
@@ -144,11 +144,21 @@ const userAuth = {
   // Update display name
   async updateDisplayName(userId, displayName) {
     const text = `
-      UPDATE app_user 
-      SET display_name = $2 
+      UPDATE app_user
+      SET display_name = $2
       WHERE id = $1
     `;
     await query(text, [userId, displayName]);
+  },
+
+  // Update profile icon
+  async updateProfileIcon(userId, profileIcon) {
+    const text = `
+      UPDATE app_user
+      SET profile_icon = $2
+      WHERE id = $1
+    `;
+    await query(text, [userId, profileIcon]);
   },
 
   // Create anonymous user
