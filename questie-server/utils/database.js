@@ -540,14 +540,29 @@ const questManager = {
     try {
       await client.query('BEGIN');
 
-      // Mark assignment as completed
+      // Mark assignment as completed with enhanced tracking
+      const now = new Date();
+      const completedTime = now.toTimeString().split(' ')[0]; // HH:MM:SS format
+      const completedDayOfWeek = now.getDay(); // 0=Sunday, 6=Saturday
+      const completedSeason = this.getSeason(now);
+
       const updateText = `
         UPDATE user_quest_assignment
-        SET is_completed = true, completed_at = CURRENT_TIMESTAMP
+        SET is_completed = true,
+            completed_at = CURRENT_TIMESTAMP,
+            completed_time = $3,
+            completed_day_of_week = $4,
+            completed_season = $5
         WHERE id = $1 AND user_id = $2
         RETURNING quest_id, assignment_type, assigned_date
       `;
-      const updateResult = await client.query(updateText, [assignmentId, userId]);
+      const updateResult = await client.query(updateText, [
+        assignmentId,
+        userId,
+        completedTime,
+        completedDayOfWeek,
+        completedSeason
+      ]);
 
       if (updateResult.rows.length === 0) {
         throw new Error('Quest assignment not found');
@@ -672,6 +687,15 @@ const questManager = {
     } finally {
       client.release();
     }
+  },
+
+  // Helper method to determine season from date
+  getSeason(date) {
+    const month = date.getMonth() + 1; // getMonth() returns 0-11, we want 1-12
+    if (month >= 3 && month <= 5) return 'spring';
+    if (month >= 6 && month <= 8) return 'summer';
+    if (month >= 9 && month <= 11) return 'autumn';
+    return 'winter'; // December, January, February
   }
 };
 
@@ -740,28 +764,18 @@ const badgeManager = {
       const userStats = statsResult.rows[0];
       const newlyEarnedBadges = [];
 
-      // Get only badges that the user can potentially earn based on current stats
-      // This is much more efficient than checking all badges
+      // Get all badges that the user hasn't completed yet (we'll check each one individually)
       const badgesText = `
-        SELECT b.id, b.name, b.requirement_type, b.requirement_value
+        SELECT b.id, b.name, b.requirement_type, b.requirement_value,
+               b.requirement_category, b.requirement_time_start, b.requirement_time_end,
+               b.requirement_days, b.requirement_season, b.requirement_date_start,
+               b.requirement_date_end, b.requirement_recurring
         FROM badge b
         LEFT JOIN user_badge ub ON b.id = ub.badge_id AND ub.user_id = $1
         WHERE (ub.id IS NULL OR ub.is_completed = false)
-        AND (
-          (b.requirement_type = 'quests_completed' AND b.requirement_value <= $2) OR
-          (b.requirement_type = 'total_points' AND b.requirement_value <= $3) OR
-          (b.requirement_type = 'current_streak' AND b.requirement_value <= $4) OR
-          (b.requirement_type = 'streak_days' AND b.requirement_value <= $5)
-        )
-        ORDER BY b.requirement_value
+        ORDER BY b.requirement_type, b.requirement_value
       `;
-      const badgesResult = await client.query(badgesText, [
-        userId,
-        userStats.total_quests_completed,
-        userStats.total_points,
-        userStats.current_streak_days,
-        userStats.longest_streak_days
-      ]);
+      const badgesResult = await client.query(badgesText, [userId]);
 
       // Check each badge requirement
       for (const badge of badgesResult.rows) {
@@ -784,6 +798,36 @@ const badgeManager = {
           case 'streak_days':
             progressValue = userStats.longest_streak_days;
             shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'category_quest':
+            // Check category-specific quest completion
+            const categoryResult = await this.checkCategoryQuestBadge(client, userId, badge);
+            progressValue = categoryResult.progress;
+            shouldAward = categoryResult.shouldAward;
+            break;
+          case 'time_of_day_quest':
+            // Check time-of-day quest completion
+            const timeResult = await this.checkTimeOfDayQuestBadge(client, userId, badge);
+            progressValue = timeResult.progress;
+            shouldAward = timeResult.shouldAward;
+            break;
+          case 'day_of_week_quest':
+            // Check day-of-week quest completion
+            const dayResult = await this.checkDayOfWeekQuestBadge(client, userId, badge);
+            progressValue = dayResult.progress;
+            shouldAward = dayResult.shouldAward;
+            break;
+          case 'seasonal_quest':
+            // Check seasonal quest completion
+            const seasonResult = await this.checkSeasonalQuestBadge(client, userId, badge);
+            progressValue = seasonResult.progress;
+            shouldAward = seasonResult.shouldAward;
+            break;
+          case 'holiday_quest':
+            // Check holiday quest completion
+            const holidayResult = await this.checkHolidayQuestBadge(client, userId, badge);
+            progressValue = holidayResult.progress;
+            shouldAward = holidayResult.shouldAward;
             break;
         }
 
@@ -910,6 +954,120 @@ const badgeManager = {
       const result = await query(insertText, [userId, badgeId]);
       return result.rows.length > 0;
     }
+  },
+
+  // Helper method to check category-specific quest badges
+  async checkCategoryQuestBadge(client, userId, badge) {
+    const categoryCountText = `
+      SELECT COUNT(*) as count
+      FROM user_quest_assignment uqa
+      JOIN quest q ON uqa.quest_id = q.id
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE uqa.user_id = $1
+      AND uqa.is_completed = true
+      AND LOWER(qc.name) = LOWER($2)
+    `;
+    const result = await client.query(categoryCountText, [userId, badge.requirement_category]);
+    const progress = parseInt(result.rows[0].count) || 0;
+    return {
+      progress,
+      shouldAward: progress >= badge.requirement_value
+    };
+  },
+
+  // Helper method to check time-of-day quest badges
+  async checkTimeOfDayQuestBadge(client, userId, badge) {
+    const timeCountText = `
+      SELECT COUNT(*) as count
+      FROM user_quest_assignment
+      WHERE user_id = $1
+      AND is_completed = true
+      AND completed_time BETWEEN $2 AND $3
+    `;
+    const result = await client.query(timeCountText, [
+      userId,
+      badge.requirement_time_start,
+      badge.requirement_time_end
+    ]);
+    const progress = parseInt(result.rows[0].count) || 0;
+    return {
+      progress,
+      shouldAward: progress >= badge.requirement_value
+    };
+  },
+
+  // Helper method to check day-of-week quest badges
+  async checkDayOfWeekQuestBadge(client, userId, badge) {
+    let dayCondition = '';
+    if (badge.requirement_days === 'weekend') {
+      dayCondition = 'AND completed_day_of_week IN (0, 6)'; // Sunday = 0, Saturday = 6
+    } else if (badge.requirement_days === 'weekday') {
+      dayCondition = 'AND completed_day_of_week IN (1, 2, 3, 4, 5)'; // Monday-Friday
+    }
+
+    const dayCountText = `
+      SELECT COUNT(*) as count
+      FROM user_quest_assignment
+      WHERE user_id = $1
+      AND is_completed = true
+      ${dayCondition}
+    `;
+    const result = await client.query(dayCountText, [userId]);
+    const progress = parseInt(result.rows[0].count) || 0;
+    return {
+      progress,
+      shouldAward: progress >= badge.requirement_value
+    };
+  },
+
+  // Helper method to check seasonal quest badges
+  async checkSeasonalQuestBadge(client, userId, badge) {
+    const seasonCountText = `
+      SELECT COUNT(*) as count
+      FROM user_quest_assignment
+      WHERE user_id = $1
+      AND is_completed = true
+      AND completed_season = $2
+    `;
+    const result = await client.query(seasonCountText, [userId, badge.requirement_season]);
+    const progress = parseInt(result.rows[0].count) || 0;
+    return {
+      progress,
+      shouldAward: progress >= badge.requirement_value
+    };
+  },
+
+  // Helper method to check holiday quest badges
+  async checkHolidayQuestBadge(client, userId, badge) {
+    // For now, we'll check if quests were completed during the holiday date range
+    // This is a simplified implementation - in a full system you'd want more sophisticated date handling
+    const holidayCountText = `
+      SELECT COUNT(*) as count
+      FROM user_quest_assignment
+      WHERE user_id = $1
+      AND is_completed = true
+      AND (
+        (EXTRACT(MONTH FROM completed_at) = $2 AND EXTRACT(DAY FROM completed_at) >= $3) OR
+        (EXTRACT(MONTH FROM completed_at) = $4 AND EXTRACT(DAY FROM completed_at) <= $5)
+      )
+    `;
+
+    // Parse start and end dates (MM-DD format)
+    const startParts = badge.requirement_date_start.split('-');
+    const endParts = badge.requirement_date_end.split('-');
+    const startMonth = parseInt(startParts[0]);
+    const startDay = parseInt(startParts[1]);
+    const endMonth = parseInt(endParts[0]);
+    const endDay = parseInt(endParts[1]);
+
+    const result = await client.query(holidayCountText, [
+      userId, startMonth, startDay, endMonth, endDay
+    ]);
+    const progress = parseInt(result.rows[0].count) || 0;
+    return {
+      progress,
+      shouldAward: progress >= badge.requirement_value
+    };
   }
 };
 

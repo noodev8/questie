@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 
 // Authentication state model
 class AuthState {
@@ -143,6 +144,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       if (result['success']) {
+        // Clear cache when logging in with a different user
+        UserService.clearCache();
         state = state.copyWith(
           isLoading: false,
           isAuthenticated: true,
@@ -177,6 +180,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       if (result['success']) {
+        // Clear cache when creating a new guest account
+        UserService.clearCache();
         state = state.copyWith(
           isLoading: false,
           isAuthenticated: true,
@@ -304,6 +309,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       await AuthService.logout();
+      // Clear user data cache when logging out
+      UserService.clearCache();
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: false,

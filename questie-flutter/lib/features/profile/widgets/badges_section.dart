@@ -133,13 +133,13 @@ class _BadgesSectionState extends ConsumerState<BadgesSection> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Badges',
+                  'Stickers',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 TextButton(
-                  onPressed: () => AppRouter.goToBadges(context),
+                  onPressed: () => AppRouter.goToStickers(context),
                   child: const Text('View All'),
                 ),
               ],
@@ -187,7 +187,7 @@ class _BadgesSectionState extends ConsumerState<BadgesSection> {
                 isEarned: isEarned,
                 category: badge['category'],
                 onTap: () => _showBadgeDetails(context, badge),
-                size: 50, // Smaller size for profile section
+                size: 70, // Bigger size for better visibility
               ),
             ),
           ),
@@ -198,7 +198,7 @@ class _BadgesSectionState extends ConsumerState<BadgesSection> {
           Expanded(
             flex: 1,
             child: Text(
-              badge['name'] ?? 'Unknown Badge',
+              badge['name'] ?? 'Unknown Sticker',
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: isEarned

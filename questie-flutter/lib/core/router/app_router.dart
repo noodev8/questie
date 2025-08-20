@@ -165,7 +165,7 @@ class AppRouter {
     context.push('/quest/$questId');
   }
 
-  static void goToBadges(BuildContext context) {
+  static void goToStickers(BuildContext context) {
     context.push('/badges');
   }
 }

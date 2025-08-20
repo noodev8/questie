@@ -143,14 +143,14 @@ class _RecentAchievementsState extends ConsumerState<RecentAchievements> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'No badges earned yet',
+                      'No stickers earned yet',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Complete quests to earn your first badge!',
+                      'Complete quests to earn your first sticker!',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey[500],
                       ),

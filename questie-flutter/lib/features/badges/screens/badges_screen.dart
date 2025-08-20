@@ -104,7 +104,7 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Badges',
+                      'Stickers',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: theme.colorScheme.primary,
@@ -173,7 +173,7 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Failed to Load Badges',
+              'Failed to Load Stickers',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -218,14 +218,14 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No Badges Available',
+                      'No Stickers Available',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.grey[600],
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Complete quests to start earning badges!\nPull down to refresh.',
+                      'Complete quests to start earning stickers!\nPull down to refresh.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[500],
                       ),
@@ -327,30 +327,30 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
         children: [
           // Main sticker with Questie icon
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Center(
               child: AnimatedQuestieSticker(
                 isEarned: isEarned,
                 category: badge['category'],
                 onTap: () => _showBadgeDetails(context, badge),
-                size: 80, // Good size for 3-column grid
+                size: 120, // Even bigger for maximum impact!
               ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Badge name with Material 3 typography
           Expanded(
-            flex: 1,
+            flex: 2,
             child: Text(
-              badge['name'] ?? 'Unknown Badge',
+              badge['name'] ?? 'Unknown Sticker',
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: isEarned
                     ? theme.colorScheme.onSurface
                     : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                fontSize: 12,
+                fontSize: 13,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -482,7 +482,7 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                badge['name'] ?? 'Unknown Badge',
+                badge['name'] ?? 'Unknown Sticker',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
