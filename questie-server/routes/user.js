@@ -129,4 +129,28 @@ router.get('/badges/earned', authMiddleware.requireAuth, userLimiter, async (req
   }
 });
 
+// POST /api/user/badges/check - Manually check and award badges
+router.post('/badges/check', authMiddleware.requireAuth, userLimiter, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Check and award badges
+    const newlyEarnedBadges = await badgeManager.checkAndAwardBadges(userId);
+
+    res.json({
+      return_code: 'SUCCESS',
+      message: 'Badge check completed',
+      newly_earned_badges: newlyEarnedBadges,
+      count: newlyEarnedBadges.length
+    });
+
+  } catch (error) {
+    console.error('Badge check error:', error);
+    res.status(500).json({
+      return_code: 'SERVER_ERROR',
+      message: 'Failed to check badges'
+    });
+  }
+});
+
 module.exports = router;

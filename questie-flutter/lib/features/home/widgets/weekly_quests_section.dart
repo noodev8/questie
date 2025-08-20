@@ -28,35 +28,43 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
 
   Future<void> _loadWeeklyQuests() async {
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
 
       final questData = await QuestService.getWeeklyQuestsWithRerollInfo();
 
       if (questData != null) {
-        setState(() {
-          _weeklyQuests = questData['quests'];
-          _isLoading = false;
-        });
-        // Debug: Print the quest data to see can_reroll status
-        print('Weekly quests loaded: ${questData['quests']?.length} quests');
-        print('Can reroll: ${questData['can_reroll']}');
-        if (questData['quests'] != null && questData['quests'].isNotEmpty) {
-          print('First quest can_reroll: ${questData['quests'][0]['can_reroll']}');
+        if (mounted) {
+          setState(() {
+            _weeklyQuests = questData['quests'];
+            _isLoading = false;
+          });
+          // Debug: Print the quest data to see can_reroll status
+          print('Weekly quests loaded: ${questData['quests']?.length} quests');
+          print('Can reroll: ${questData['can_reroll']}');
+          if (questData['quests'] != null && questData['quests'].isNotEmpty) {
+            print('First quest can_reroll: ${questData['quests'][0]['can_reroll']}');
+          }
         }
       } else {
+        if (mounted) {
+          setState(() {
+            _weeklyQuests = null;
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _weeklyQuests = null;
+          _error = e.toString();
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
     }
   }
 
@@ -190,12 +198,27 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Quest "${quest['title']}" completed successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          // Check if any badges were earned
+          final newlyEarnedBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
+
+          if (newlyEarnedBadges.isNotEmpty) {
+            // Show badge earned notification
+            final badgeNames = newlyEarnedBadges.map((badge) => badge['name']).join(', ');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Quest "${quest['title']}" completed! 🏆 New badges earned: $badgeNames'),
+                backgroundColor: Colors.amber[700],
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Quest "${quest['title']}" completed successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       } else {
         if (mounted) {

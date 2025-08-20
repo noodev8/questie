@@ -215,12 +215,51 @@ class QuestService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['return_code'] == 'SUCCESS') {
-        return data['completion'];
+        return {
+          'completion': data['completion'],
+          'newly_earned_badges': data['newly_earned_badges'] ?? [],
+        };
       } else {
         throw Exception(data['message'] ?? 'Failed to complete quest');
       }
     } catch (e) {
       print('Error completing quest: $e');
+      return null;
+    }
+  }
+
+  // Uncomplete a quest (undo completion)
+  static Future<Map<String, dynamic>?> uncompleteQuest(int assignmentId) async {
+    try {
+      final token = AuthService.currentToken;
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/uncomplete'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'assignment_id': assignmentId,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['return_code'] == 'SUCCESS') {
+          return data;
+        } else {
+          throw Exception(data['message'] ?? 'Failed to unmark quest');
+        }
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to unmark quest');
+      }
+    } catch (e) {
+      print('Error uncompleting quest: $e');
       return null;
     }
   }

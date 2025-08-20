@@ -65,22 +65,26 @@ class CalmModeToggle extends ConsumerWidget {
               value: isCalmMode,
               onChanged: (value) {
                 ref.read(calmModeProvider.notifier).state = value;
-                
-                // Show a gentle feedback
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      value 
-                          ? '🌿 Calm Mode activated. Take your time.'
-                          : '✨ Regular Mode activated. Let\'s explore!',
-                    ),
-                    duration: const Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
+
+                // Show a gentle feedback - use post frame callback to ensure context is valid
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          value
+                              ? '🌿 Calm Mode activated. Take your time.'
+                              : '✨ Regular Mode activated. Let\'s explore!',
+                        ),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  }
+                });
               },
               activeColor: const Color(0xFF6B8E6B),
             ),

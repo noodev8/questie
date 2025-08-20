@@ -464,7 +464,8 @@ router.post('/complete', authMiddleware.requireAuth, questLimiter, [
         assignment_type: result.assignment.assignment_type,
         points_earned: result.points_earned,
         completed_at: result.completion.completed_at
-      }
+      },
+      newly_earned_badges: result.newly_earned_badges || []
     });
 
   } catch (error) {
@@ -480,6 +481,53 @@ router.post('/complete', authMiddleware.requireAuth, questLimiter, [
     res.status(500).json({
       return_code: 'SERVER_ERROR',
       message: 'Failed to complete quest'
+    });
+  }
+});
+
+// POST /api/quests/uncomplete - Uncomplete a quest (undo completion)
+router.post('/uncomplete', authMiddleware.requireAuth, questLimiter, [
+  body('assignment_id').isInt({ min: 1 }).withMessage('Valid assignment ID required')
+], handleValidationErrors, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { assignment_id } = req.body;
+
+    // Uncomplete the quest
+    const result = await questManager.uncompleteQuest(userId, assignment_id);
+
+    res.json({
+      return_code: 'SUCCESS',
+      message: 'Quest unmarked successfully',
+      uncompleted: {
+        assignment_id: assignment_id,
+        quest_id: result.assignment.quest_id,
+        assignment_type: result.assignment.assignment_type,
+        points_deducted: result.points_deducted,
+        uncompleted_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Quest uncomplete error:', error);
+
+    if (error.message === 'Quest assignment not found') {
+      return res.status(404).json({
+        return_code: 'ASSIGNMENT_NOT_FOUND',
+        message: 'Quest assignment not found or does not belong to user'
+      });
+    }
+
+    if (error.message === 'Quest is not completed') {
+      return res.status(400).json({
+        return_code: 'QUEST_NOT_COMPLETED',
+        message: 'Quest is not completed, cannot unmark'
+      });
+    }
+
+    res.status(500).json({
+      return_code: 'SERVER_ERROR',
+      message: 'Failed to unmark quest'
     });
   }
 });

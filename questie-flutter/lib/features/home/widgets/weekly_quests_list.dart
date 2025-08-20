@@ -23,20 +23,26 @@ class _WeeklyQuestsListState extends State<WeeklyQuestsList> {
     try {
       final questData = await QuestService.getWeeklyQuestsWithRerollInfo();
       if (questData != null) {
-        setState(() {
-          _weeklyQuests = questData['quests'];
-          _canReroll = questData['can_reroll'] ?? false;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _weeklyQuests = questData['quests'];
+            _canReroll = questData['can_reroll'] ?? false;
+            _isLoading = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 

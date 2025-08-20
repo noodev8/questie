@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/quest_service.dart';
+import '../../../shared/widgets/quest_stamp_animation.dart';
 
 class QuestDetailsScreen extends ConsumerStatefulWidget {
   final String questId;
@@ -18,6 +19,8 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   Map<String, dynamic>? _quest;
   bool _isLoading = true;
   String? _error;
+  bool _showStamp = false;
+  List<dynamic> _completionBadges = [];
 
   @override
   void initState() {
@@ -27,24 +30,30 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
   Future<void> _loadQuestDetails() async {
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
 
       print('Loading quest details for quest ID: ${widget.questId}'); // Debug log
       final quest = await QuestService.getQuestDetails(widget.questId);
       print('Quest details received: $quest'); // Debug log
 
-      setState(() {
-        _quest = quest;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _quest = quest;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -80,13 +89,16 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
       if (result != null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Quest completed successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.of(context).pop(true); // Return true to indicate completion
+          // Reload quest details first to update the UI state
+          await _loadQuestDetails();
+
+          // Store the badge info for the stamp completion handler
+          _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
+
+          // Show stamp animation
+          setState(() {
+            _showStamp = true;
+          });
         }
       } else {
         if (mounted) {
@@ -110,8 +122,38 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     }
   }
 
+  void _onStampComplete() {
+    // Show completion message and navigate back
+    if (_completionBadges.isNotEmpty) {
+      final badgeNames = _completionBadges.map((badge) => badge['name']).join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Quest completed! 🏆 New badges earned: $badgeNames'),
+          backgroundColor: Colors.amber[700],
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Quest completed successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+    Navigator.of(context).pop(true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    return QuestStampOverlay(
+      showStamp: _showStamp,
+      onStampComplete: _onStampComplete,
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
@@ -477,25 +519,27 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
     return Column(
       children: [
-        if (isAssigned && !isCompleted) ...[
+        if (isAssigned) ...[
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => _showCompletionDialog(context),
-              child: const Text('Mark as Completed'),
-            ),
-          ),
-        ] else if (isCompleted) ...[
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: null,
+              onPressed: isCompleted
+                  ? () => _showUnmarkDialog(context)
+                  : () => _showCompletionDialog(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isCompleted
+                    ? Colors.orange[700]
+                    : null,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green[700]),
+                  Icon(
+                    isCompleted ? Icons.undo : Icons.check_circle,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  const Text('Completed'),
+                  Text(isCompleted ? 'Unmark as Completed' : 'Mark as Completed'),
                 ],
               ),
             ),
@@ -567,6 +611,79 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
         ],
       ),
     );
+  }
+
+  void _showUnmarkDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unmark Quest'),
+        content: const Text('Are you sure you want to unmark this quest as completed? This will deduct the points you earned.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              await _uncompleteQuest();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange[700],
+            ),
+            child: const Text('Unmark'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _uncompleteQuest() async {
+    if (_quest == null) return;
+
+    final assignment = _quest!['assignment'];
+    if (assignment == null) return;
+
+    try {
+      final result = await QuestService.uncompleteQuest(
+        assignment['assignment_id'],
+      );
+
+      if (result != null) {
+        if (mounted) {
+          // Reload quest details to update UI state
+          await _loadQuestDetails();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Quest unmarked successfully!'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to unmark quest. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
 

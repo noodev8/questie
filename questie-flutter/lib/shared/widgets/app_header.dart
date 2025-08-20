@@ -10,7 +10,7 @@ class AppHeader extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8), // More top padding
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -38,13 +38,15 @@ class AppHeader extends ConsumerWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6B8E6B),
+                    color: const Color(0xFF6B8E6B).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.explore,
-                    color: Colors.white,
-                    size: 20,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Image.asset(
+                      'assets/icons/questie1.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

@@ -152,7 +152,7 @@ class _BadgesSectionState extends ConsumerState<BadgesSection> {
                 crossAxisCount: 3, // Changed to 3 badges per row
                 crossAxisSpacing: 16, // More spacing for better visual separation
                 mainAxisSpacing: 16,
-                childAspectRatio: 0.9, // Adjusted for better proportions with 3 columns
+                childAspectRatio: 0.75, // Taller for better text visibility
               ),
               itemCount: previewBadges.length,
               itemBuilder: (context, index) {
@@ -188,51 +188,128 @@ class _BadgesSectionState extends ConsumerState<BadgesSection> {
         ),
         child: Stack(
           children: [
-            // Main badge container with Material 3 styling
+            // Main badge container with cute styling
             Container(
               width: double.infinity,
               height: double.infinity,
               decoration: BoxDecoration(
-                color: isEarned
-                    ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(20),
+                gradient: isEarned
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          theme.colorScheme.primaryContainer,
+                          theme.colorScheme.primaryContainer.withValues(alpha: 0.8),
+                          theme.colorScheme.primary.withValues(alpha: 0.1),
+                        ],
+                      )
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          theme.colorScheme.surfaceContainerHighest,
+                          theme.colorScheme.surfaceContainer,
+                          theme.colorScheme.surfaceContainerHigh,
+                        ],
+                      ),
+                borderRadius: BorderRadius.circular(24), // More rounded for cuteness
                 border: Border.all(
                   color: isEarned
-                      ? theme.colorScheme.primary.withValues(alpha: 0.3)
-                      : theme.colorScheme.outline.withValues(alpha: 0.2),
-                  width: 1,
+                      ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                      : theme.colorScheme.outline.withValues(alpha: 0.15),
+                  width: 2,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isEarned
+                        ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                        : theme.colorScheme.shadow.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 0,
+                  ),
+                ],
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12), // More generous padding for 3-column layout
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Badge icon with Material 3 styling
-                    Container(
-                      width: 32, // Larger for better visibility in 3-column layout
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isEarned
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.surfaceContainerHigh,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.shadow.withValues(alpha: 0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
+                    // Badge icon with cute styling and lock overlay
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Main badge icon with cute circular design
+                        Container(
+                          width: 40, // Larger for cuteness
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: isEarned
+                                ? RadialGradient(
+                                    center: Alignment.topLeft,
+                                    radius: 1.2,
+                                    colors: [
+                                      theme.colorScheme.primary.withValues(alpha: 0.9),
+                                      theme.colorScheme.primary,
+                                      theme.colorScheme.primary.withValues(alpha: 0.8),
+                                    ],
+                                  )
+                                : RadialGradient(
+                                    center: Alignment.topLeft,
+                                    radius: 1.2,
+                                    colors: [
+                                      theme.colorScheme.surfaceContainerHigh,
+                                      theme.colorScheme.surfaceContainer,
+                                      theme.colorScheme.surfaceContainerHighest,
+                                    ],
+                                  ),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isEarned
+                                  ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                                  : theme.colorScheme.outline.withValues(alpha: 0.2),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: isEarned
+                                    ? theme.colorScheme.primary.withValues(alpha: 0.2)
+                                    : theme.colorScheme.shadow.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        _getBadgeIconByCategory(badge['category'], badge['icon']),
-                        color: isEarned
-                            ? theme.colorScheme.onPrimary
-                            : theme.colorScheme.onSurfaceVariant,
-                        size: 16, // Adjusted for larger container
-                      ),
+                          child: Icon(
+                            _getBadgeIconByCategory(badge['category'], badge['icon']),
+                            color: isEarned
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            size: 20, // Larger icon for cuteness
+                          ),
+                        ),
+
+                        // Cute lock overlay for locked badges
+                        if (!isEarned)
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface.withValues(alpha: 0.85),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.lock_rounded,
+                              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                              size: 16,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8), // More spacing for 3-column layout
 
@@ -244,8 +321,8 @@ class _BadgesSectionState extends ConsumerState<BadgesSection> {
                           fontWeight: FontWeight.w600,
                           color: isEarned
                               ? theme.colorScheme.onPrimaryContainer
-                              : theme.colorScheme.onSurfaceVariant,
-                          fontSize: 10, // Larger for better readability in 3-column layout
+                              : theme.colorScheme.onSurface, // Darker text for better visibility
+                          fontSize: 11, // Larger for better readability
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 2, // Allow 2 lines for longer badge names

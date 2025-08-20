@@ -36,7 +36,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(context),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8), // Reduced from 16 to 8
 
               // Progress Stats (moved to top)
               QuickStatsCard(

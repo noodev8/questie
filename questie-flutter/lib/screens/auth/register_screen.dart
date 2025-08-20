@@ -97,12 +97,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     // Listen for auth state changes to show errors
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.error != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.error!),
-            backgroundColor: theme.colorScheme.error,
-          ),
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(next.error!),
+                backgroundColor: theme.colorScheme.error,
+              ),
+            );
+          }
+        });
       }
     });
 

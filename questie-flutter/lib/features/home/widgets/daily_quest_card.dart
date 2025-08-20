@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../services/quest_service.dart';
+import '../../../shared/widgets/quest_stamp_animation.dart';
 
 class DailyQuestCard extends StatefulWidget {
   final VoidCallback? onQuestCompleted;
@@ -27,22 +28,28 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
 
   Future<void> _loadDailyQuest() async {
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
 
       final quest = await QuestService.getDailyQuest();
 
-      setState(() {
-        _dailyQuest = quest;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _dailyQuest = quest;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -87,19 +94,21 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
 
   Future<void> _rerollDailyQuest() async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+        });
+      }
 
       final newQuest = await QuestService.rerollDailyQuest();
 
       if (newQuest != null) {
-        setState(() {
-          _dailyQuest = newQuest;
-          _isLoading = false;
-        });
-
         if (mounted) {
+          setState(() {
+            _dailyQuest = newQuest;
+            _isLoading = false;
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Daily quest rerolled successfully!'),
@@ -108,11 +117,11 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
           );
         }
       } else {
-        setState(() {
-          _isLoading = false;
-        });
-
         if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to reroll quest. Please try again.'),
@@ -122,11 +131,11 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         }
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
@@ -178,12 +187,27 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Daily quest completed successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          // Check if any badges were earned
+          final newlyEarnedBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
+
+          if (newlyEarnedBadges.isNotEmpty) {
+            // Show badge earned notification
+            final badgeNames = newlyEarnedBadges.map((badge) => badge['name']).join(', ');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Daily quest completed! 🏆 New badges earned: $badgeNames'),
+                backgroundColor: Colors.amber[700],
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Daily quest completed successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       } else {
         if (mounted) {

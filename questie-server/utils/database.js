@@ -565,10 +565,25 @@ const questManager = {
       console.log(`✅ User stats updated successfully`);
 
       await client.query('COMMIT');
+
+      // Check and award badges after successful quest completion
+      let newlyEarnedBadges = [];
+      try {
+        console.log(`🏆 Checking badges for user ${userId}`);
+        newlyEarnedBadges = await badgeManager.checkAndAwardBadges(userId);
+        if (newlyEarnedBadges.length > 0) {
+          console.log(`🎉 User ${userId} earned ${newlyEarnedBadges.length} new badges:`, newlyEarnedBadges.map(b => b.name));
+        }
+      } catch (badgeError) {
+        console.error('Error checking badges after quest completion:', badgeError);
+        // Don't fail the quest completion if badge checking fails
+      }
+
       return {
         assignment,
         completion: completionResult.rows[0],
-        points_earned: points
+        points_earned: points,
+        newly_earned_badges: newlyEarnedBadges
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -620,8 +635,255 @@ const badgeManager = {
     `;
     const result = await query(text, [userId]);
     return parseInt(result.rows[0].badge_count) || 0;
+  },
+
+  // Check and award badges for a user
+  async checkAndAwardBadges(userId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get user's current stats
+      const statsText = `
+        SELECT total_quests_completed, total_points, current_streak_days, longest_streak_days
+        FROM user_stats
+        WHERE user_id = $1
+      `;
+      const statsResult = await client.query(statsText, [userId]);
+
+      if (statsResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return [];
+      }
+
+      const userStats = statsResult.rows[0];
+      const newlyEarnedBadges = [];
+
+      // Get all badges that the user hasn't earned yet
+      const badgesText = `
+        SELECT b.id, b.name, b.requirement_type, b.requirement_value
+        FROM badge b
+        LEFT JOIN user_badge ub ON b.id = ub.badge_id AND ub.user_id = $1
+        WHERE ub.id IS NULL OR ub.is_completed = false
+      `;
+      const badgesResult = await client.query(badgesText, [userId]);
+
+      // Check each badge requirement
+      for (const badge of badgesResult.rows) {
+        let shouldAward = false;
+        let progressValue = 0;
+
+        switch (badge.requirement_type) {
+          case 'quests_completed':
+            progressValue = userStats.total_quests_completed;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'total_points':
+            progressValue = userStats.total_points;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'current_streak':
+            progressValue = userStats.current_streak_days;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+          case 'streak_days':
+            progressValue = userStats.longest_streak_days;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
+        }
+
+        // Update or create user_badge record
+        if (shouldAward) {
+          // Check if badge already exists for this user
+          const existingBadgeText = `
+            SELECT id, is_completed FROM user_badge
+            WHERE user_id = $1 AND badge_id = $2
+          `;
+          const existingResult = await client.query(existingBadgeText, [userId, badge.id]);
+
+          if (existingResult.rows.length > 0) {
+            // Update existing record
+            const existingBadge = existingResult.rows[0];
+            if (!existingBadge.is_completed) {
+              const updateText = `
+                UPDATE user_badge
+                SET progress_value = $3, is_completed = true, earned_at = CURRENT_TIMESTAMP
+                WHERE user_id = $1 AND badge_id = $2
+                RETURNING id, badge_id
+              `;
+              const updateResult = await client.query(updateText, [userId, badge.id, progressValue]);
+
+              if (updateResult.rows.length > 0) {
+                newlyEarnedBadges.push({
+                  id: badge.id,
+                  name: badge.name,
+                  requirement_type: badge.requirement_type,
+                  requirement_value: badge.requirement_value,
+                  progress_value: progressValue
+                });
+              }
+            }
+          } else {
+            // Insert new record
+            const insertText = `
+              INSERT INTO user_badge (user_id, badge_id, progress_value, is_completed, earned_at)
+              VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP)
+              RETURNING id, badge_id
+            `;
+            const insertResult = await client.query(insertText, [userId, badge.id, progressValue]);
+
+            if (insertResult.rows.length > 0) {
+              newlyEarnedBadges.push({
+                id: badge.id,
+                name: badge.name,
+                requirement_type: badge.requirement_type,
+                requirement_value: badge.requirement_value,
+                progress_value: progressValue
+              });
+            }
+          }
+        } else {
+          // Update progress without awarding
+          const existingBadgeText = `
+            SELECT id, is_completed FROM user_badge
+            WHERE user_id = $1 AND badge_id = $2
+          `;
+          const existingResult = await client.query(existingBadgeText, [userId, badge.id]);
+
+          if (existingResult.rows.length > 0) {
+            // Update existing record if not completed
+            const existingBadge = existingResult.rows[0];
+            if (!existingBadge.is_completed) {
+              const updateText = `
+                UPDATE user_badge
+                SET progress_value = $3
+                WHERE user_id = $1 AND badge_id = $2
+              `;
+              await client.query(updateText, [userId, badge.id, progressValue]);
+            }
+          } else {
+            // Insert new progress record
+            const insertText = `
+              INSERT INTO user_badge (user_id, badge_id, progress_value, is_completed)
+              VALUES ($1, $2, $3, false)
+            `;
+            await client.query(insertText, [userId, badge.id, progressValue]);
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+      return newlyEarnedBadges;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Award a specific badge to a user
+  async awardBadge(userId, badgeId) {
+    // Check if badge already exists for this user
+    const existingText = `
+      SELECT id, is_completed FROM user_badge
+      WHERE user_id = $1 AND badge_id = $2
+    `;
+    const existingResult = await query(existingText, [userId, badgeId]);
+
+    if (existingResult.rows.length > 0) {
+      // Update existing record if not completed
+      const existingBadge = existingResult.rows[0];
+      if (!existingBadge.is_completed) {
+        const updateText = `
+          UPDATE user_badge
+          SET is_completed = true, earned_at = CURRENT_TIMESTAMP
+          WHERE user_id = $1 AND badge_id = $2
+          RETURNING id
+        `;
+        const result = await query(updateText, [userId, badgeId]);
+        return result.rows.length > 0;
+      }
+      return false; // Already completed
+    } else {
+      // Insert new record
+      const insertText = `
+        INSERT INTO user_badge (user_id, badge_id, is_completed, earned_at)
+        VALUES ($1, $2, true, CURRENT_TIMESTAMP)
+        RETURNING id
+      `;
+      const result = await query(insertText, [userId, badgeId]);
+      return result.rows.length > 0;
+    }
   }
 };
+
+// Add uncompleteQuest to questManager
+questManager.uncompleteQuest = async function(userId, assignmentId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Check if assignment exists and is completed
+      const checkText = `
+        SELECT quest_id, assignment_type, is_completed
+        FROM user_quest_assignment
+        WHERE id = $1 AND user_id = $2
+      `;
+      const checkResult = await client.query(checkText, [assignmentId, userId]);
+
+      if (checkResult.rows.length === 0) {
+        throw new Error('Quest assignment not found');
+      }
+
+      const assignment = checkResult.rows[0];
+      if (!assignment.is_completed) {
+        throw new Error('Quest is not completed');
+      }
+
+      // Get quest details for points
+      const questText = `
+        SELECT points FROM quest WHERE id = $1
+      `;
+      const questResult = await client.query(questText, [assignment.quest_id]);
+      const points = questResult.rows[0]?.points || 0;
+
+      // Mark assignment as not completed
+      const updateText = `
+        UPDATE user_quest_assignment
+        SET is_completed = false, completed_at = NULL
+        WHERE id = $1 AND user_id = $2
+        RETURNING quest_id, assignment_type
+      `;
+      const updateResult = await client.query(updateText, [assignmentId, userId]);
+
+      // Remove completion record
+      const deleteCompletionText = `
+        DELETE FROM user_quest_completion
+        WHERE assignment_id = $1 AND user_id = $2
+        RETURNING points_earned
+      `;
+      const deleteResult = await client.query(deleteCompletionText, [assignmentId, userId]);
+      const pointsToDeduct = deleteResult.rows[0]?.points_earned || points;
+
+      // Update user stats (subtract points and quest count)
+      console.log(`🎯 Updating user stats for user ${userId} - deducting ${pointsToDeduct} points`);
+      await questManager.updateUserStats(userId, -pointsToDeduct);
+      console.log(`✅ User stats updated successfully`);
+
+      await client.query('COMMIT');
+
+      return {
+        assignment: updateResult.rows[0],
+        points_deducted: pointsToDeduct
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  };
 
 module.exports = {
   query,
