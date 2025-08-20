@@ -9,7 +9,7 @@ class QuestStampAnimation extends StatefulWidget {
   const QuestStampAnimation({
     super.key,
     this.onComplete,
-    this.duration = const Duration(milliseconds: 600), // Much faster
+    this.duration = const Duration(milliseconds: 800), // Perfect timing
     this.size = 120,
   });
 

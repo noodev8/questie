@@ -138,14 +138,14 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   }
 
   void _onStampComplete() {
-    // Show completion message and navigate back
+    // Stay on the same page and show completion message
     if (_completionBadges.isNotEmpty) {
       final badgeNames = _completionBadges.map((badge) => badge['name']).join(', ');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Quest completed! 🏆 New badges earned: $badgeNames'),
           backgroundColor: Colors.amber[700],
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 3),
         ),
       );
     } else {
@@ -153,10 +153,11 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
         const SnackBar(
           content: Text('Quest completed successfully!'),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
       );
     }
-    Navigator.of(context).pop(true);
+    // Removed navigation - user stays on quest details page
   }
 
   @override
