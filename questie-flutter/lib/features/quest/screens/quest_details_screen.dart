@@ -94,8 +94,11 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
       if (result != null) {
         if (mounted) {
-          // Reload quest details first to update the UI state
-          await _loadQuestDetails();
+          // Update quest state directly without reloading
+          if (_quest != null && _quest!['assignment'] != null) {
+            _quest!['assignment']['is_completed'] = true;
+            _quest!['assignment']['completed_at'] = DateTime.now().toIso8601String();
+          }
 
           // Store the badge info for the stamp completion handler
           _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];

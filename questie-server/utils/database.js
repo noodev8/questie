@@ -523,6 +523,9 @@ const questManager = {
 
   // Complete a quest
   async completeQuest(userId, assignmentId, completionNotes = null) {
+    const startTime = Date.now();
+    console.log(`🚀 Starting quest completion for user ${userId}, assignment ${assignmentId}`);
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -559,25 +562,93 @@ const questManager = {
         userId, assignment.quest_id, assignmentId, completionNotes, points
       ]);
 
-      // Update user stats
+      // Update user stats within the same transaction for better performance
       console.log(`🎯 Updating user stats for user ${userId} with ${points} points`);
-      await questManager.updateUserStats(userId, points);
+
+      // Get current stats
+      const statsText = `
+        SELECT * FROM user_stats WHERE user_id = $1
+      `;
+      let statsResult = await client.query(statsText, [userId]);
+
+      if (statsResult.rows.length === 0) {
+        // Create initial stats if they don't exist
+        const createText = `
+          INSERT INTO user_stats (user_id, total_quests_completed, total_points, current_streak_days, longest_streak_days)
+          VALUES ($1, 0, 0, 0, 0)
+          RETURNING *
+        `;
+        statsResult = await client.query(createText, [userId]);
+      }
+
+      const currentStats = statsResult.rows[0];
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+      // Calculate new streak
+      let newCurrentStreak = currentStats.current_streak_days;
+      let newLongestStreak = currentStats.longest_streak_days;
+
+      // Check if user completed a quest yesterday or today
+      const lastCompletedStr = currentStats.last_quest_completed_at
+        ? currentStats.last_quest_completed_at.toISOString().split('T')[0]
+        : null;
+
+      if (lastCompletedStr === yesterdayStr) {
+        // Continuing streak
+        newCurrentStreak += 1;
+      } else if (lastCompletedStr !== today) {
+        // Starting new streak
+        newCurrentStreak = 1;
+      }
+      // If lastCompletedStr === today, streak stays the same (already completed today)
+
+      // Update longest streak if current is higher
+      if (newCurrentStreak > newLongestStreak) {
+        newLongestStreak = newCurrentStreak;
+      }
+
+      // Update stats within the same transaction
+      const updateStatsText = `
+        UPDATE user_stats
+        SET total_quests_completed = total_quests_completed + 1,
+            total_points = total_points + $2,
+            current_streak_days = $3,
+            longest_streak_days = $4,
+            last_quest_completed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $1
+        RETURNING *
+      `;
+      await client.query(updateStatsText, [userId, points, newCurrentStreak, newLongestStreak]);
+
       console.log(`✅ User stats updated successfully`);
 
       await client.query('COMMIT');
+      const dbTime = Date.now() - startTime;
+      console.log(`⚡ Database operations completed in ${dbTime}ms`);
 
       // Check and award badges after successful quest completion
       let newlyEarnedBadges = [];
       try {
+        const badgeStartTime = Date.now();
         console.log(`🏆 Checking badges for user ${userId}`);
         newlyEarnedBadges = await badgeManager.checkAndAwardBadges(userId);
+        const badgeTime = Date.now() - badgeStartTime;
         if (newlyEarnedBadges.length > 0) {
-          console.log(`🎉 User ${userId} earned ${newlyEarnedBadges.length} new badges:`, newlyEarnedBadges.map(b => b.name));
+          console.log(`🎉 User ${userId} earned ${newlyEarnedBadges.length} new badges in ${badgeTime}ms:`, newlyEarnedBadges.map(b => b.name));
+        } else {
+          console.log(`🏆 Badge check completed in ${badgeTime}ms - no new badges`);
         }
       } catch (badgeError) {
         console.error('Error checking badges after quest completion:', badgeError);
         // Don't fail the quest completion if badge checking fails
       }
+
+      const totalTime = Date.now() - startTime;
+      console.log(`✅ Quest completion finished in ${totalTime}ms total`);
 
       return {
         assignment,
@@ -659,14 +730,28 @@ const badgeManager = {
       const userStats = statsResult.rows[0];
       const newlyEarnedBadges = [];
 
-      // Get all badges that the user hasn't earned yet
+      // Get only badges that the user can potentially earn based on current stats
+      // This is much more efficient than checking all badges
       const badgesText = `
         SELECT b.id, b.name, b.requirement_type, b.requirement_value
         FROM badge b
         LEFT JOIN user_badge ub ON b.id = ub.badge_id AND ub.user_id = $1
-        WHERE ub.id IS NULL OR ub.is_completed = false
+        WHERE (ub.id IS NULL OR ub.is_completed = false)
+        AND (
+          (b.requirement_type = 'quests_completed' AND b.requirement_value <= $2) OR
+          (b.requirement_type = 'total_points' AND b.requirement_value <= $3) OR
+          (b.requirement_type = 'current_streak' AND b.requirement_value <= $4) OR
+          (b.requirement_type = 'streak_days' AND b.requirement_value <= $5)
+        )
+        ORDER BY b.requirement_value
       `;
-      const badgesResult = await client.query(badgesText, [userId]);
+      const badgesResult = await client.query(badgesText, [
+        userId,
+        userStats.total_quests_completed,
+        userStats.total_points,
+        userStats.current_streak_days,
+        userStats.longest_streak_days
+      ]);
 
       // Check each badge requirement
       for (const badge of badgesResult.rows) {
