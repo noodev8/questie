@@ -15,6 +15,19 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _refreshCounter = 0;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Don't auto-refresh on init to avoid scroll issues
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   void _onQuestCompleted() {
     // Clear user stats cache to force refresh
@@ -31,6 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,17 +52,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildHeader(context),
               const SizedBox(height: 8), // Reduced from 16 to 8
 
-              // Progress Stats (moved to top)
+              // Progress Stats
               QuickStatsCard(
                 key: ValueKey('quick_stats_$_refreshCounter'),
               ),
               const SizedBox(height: 24),
 
-              // Daily Quest
-              DailyQuestCard(
-                key: ValueKey('daily_quest_$_refreshCounter'),
-                onQuestCompleted: _onQuestCompleted,
-              ),
+              // Daily Quest Section
+              _buildDailyQuestSection(context),
               const SizedBox(height: 32),
 
               // Divider
@@ -85,6 +96,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return const SizedBox.shrink(); // Remove the header content
+  }
+
+  Widget _buildDailyQuestSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Daily Quest Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
+              ),
+            ],
+            border: Border.all(
+              color: const Color(0xFF6B8E6B).withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.today_outlined,
+                color: Color(0xFF6B8E6B),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Daily Challenge',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF6B8E6B),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Daily Quest Card
+        DailyQuestCard(
+          key: ValueKey('daily_quest_$_refreshCounter'),
+          onQuestCompleted: _onQuestCompleted,
+        ),
+      ],
+    );
   }
 
   Widget _buildQuickActions(BuildContext context) {

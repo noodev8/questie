@@ -34,19 +34,11 @@ class AppHeader extends ConsumerWidget {
             // App Logo/Title
             Row(
               children: [
-                Container(
-                  width: 32,
+                SizedBox(
                   height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6B8E6B).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Image.asset(
-                      'assets/icons/questie1.png',
-                      fit: BoxFit.contain,
-                    ),
+                  child: Image.asset(
+                    'assets/images/questie-logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(width: 12),

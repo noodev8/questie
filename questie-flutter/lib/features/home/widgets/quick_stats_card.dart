@@ -19,6 +19,13 @@ class _QuickStatsCardState extends ConsumerState<QuickStatsCard> {
     _loadStats();
   }
 
+  @override
+  void didUpdateWidget(QuickStatsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload data when the widget is updated (e.g., when key changes)
+    _loadStats();
+  }
+
   Future<void> _loadStats() async {
     try {
       final result = await UserService.getUserStats();

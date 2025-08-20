@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../services/quest_service.dart';
+import '../../../services/user_service.dart';
+import 'progress_bar_widget.dart';
+import '../../../shared/widgets/quest_completion_indicator.dart';
 
 class WeeklyQuestsSection extends StatefulWidget {
   final VoidCallback? onQuestCompleted;
@@ -19,11 +22,24 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
   List<Map<String, dynamic>>? _weeklyQuests;
   bool _isLoading = true;
   String? _error;
+  bool _showStamp = false;
+  List<dynamic> _completionBadges = [];
 
   @override
   void initState() {
     super.initState();
     _loadWeeklyQuests();
+  }
+
+  @override
+  void didUpdateWidget(WeeklyQuestsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Schedule reload for next frame to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadWeeklyQuests();
+      }
+    });
   }
 
   Future<void> _loadWeeklyQuests() async {
@@ -70,6 +86,23 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
 
   @override
   Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        _buildContent(context),
+        // Show floating completion animation when needed
+        if (_showStamp)
+          Positioned.fill(
+            child: Center(
+              child: FloatingQuestCompletionAnimation(
+                onComplete: _onStampComplete,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoading) {
       return _buildLoadingCard(context);
     }
@@ -157,40 +190,30 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
     }
   }
 
-  Future<void> _showCompleteQuestDialog(BuildContext context, Map<String, dynamic> quest) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Complete Quest'),
-        content: Text('Are you sure you want to mark "${quest['title']}" as completed?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Complete'),
-          ),
-        ],
-      ),
-    );
 
-    if (confirmed == true) {
-      await _completeQuest(quest);
-    }
-  }
 
-  Future<void> _completeQuest(Map<String, dynamic> quest) async {
+
+
+  Future<void> _uncompleteQuest(Map<String, dynamic> quest) async {
     try {
-      final result = await QuestService.completeQuest(
+      final result = await QuestService.uncompleteQuest(
         quest['assignment_id'],
-        completionNotes: 'Completed from weekly quests section',
       );
 
       if (result != null) {
-        // Reload weekly quests to reflect the completion
-        await _loadWeeklyQuests();
+        // Update quest state locally to avoid full reload and potential scrolling
+        if (mounted && _weeklyQuests != null) {
+          setState(() {
+            final questIndex = _weeklyQuests!.indexWhere(
+              (q) => q['assignment_id'] == quest['assignment_id']
+            );
+            if (questIndex != -1) {
+              // Update quest completion status directly on the quest object
+              _weeklyQuests![questIndex]['is_completed'] = false;
+              _weeklyQuests![questIndex]['completed_at'] = null;
+            }
+          });
+        }
 
         // Call the callback to notify parent widget
         if (widget.onQuestCompleted != null) {
@@ -198,27 +221,60 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         }
 
         if (mounted) {
-          // Check if any badges were earned
-          final newlyEarnedBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quest unmarked successfully!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to unmark quest. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
-          if (newlyEarnedBadges.isNotEmpty) {
-            // Show badge earned notification
-            final badgeNames = newlyEarnedBadges.map((badge) => badge['name']).join(', ');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Quest "${quest['title']}" completed! 🏆 New badges earned: $badgeNames'),
-                backgroundColor: Colors.amber[700],
-                duration: const Duration(seconds: 4),
-              ),
+  Future<void> _completeQuestWithAnimation(Map<String, dynamic> quest) async {
+    try {
+      final result = await QuestService.completeQuest(
+        quest['assignment_id'],
+        completionNotes: 'Completed from weekly quests section',
+      );
+
+      if (result != null) {
+        // Store the badge info for the stamp completion handler
+        _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
+
+        // Update quest state locally immediately
+        if (mounted && _weeklyQuests != null) {
+          setState(() {
+            final questIndex = _weeklyQuests!.indexWhere(
+              (q) => q['assignment_id'] == quest['assignment_id']
             );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Quest "${quest['title']}" completed successfully!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+            if (questIndex != -1) {
+              // Update quest completion status directly on the quest object
+              _weeklyQuests![questIndex]['is_completed'] = true;
+              _weeklyQuests![questIndex]['completed_at'] = DateTime.now().toIso8601String();
+            }
+            // Show completion animation
+            _showStamp = true;
+          });
         }
       } else {
         if (mounted) {
@@ -241,6 +297,28 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
       }
     }
   }
+
+  void _onStampComplete() {
+    // Reset the stamp animation state
+    if (mounted) {
+      setState(() {
+        _showStamp = false;
+      });
+    }
+
+    // Clear user stats cache to ensure fresh data
+    UserService.clearStatsCache();
+
+    // Update stats without causing scroll issues
+    if (widget.onQuestCompleted != null) {
+      widget.onQuestCompleted!();
+    }
+
+    // No snackbar messages - just animation and DB update
+    // Note: Quest state is already updated in _completeQuestWithAnimation
+  }
+
+
 
   Widget _buildLoadingCard(BuildContext context) {
     return Container(
@@ -369,7 +447,13 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
+
+        // Weekly Progress Bar
+        WeeklyProgressBarWidget(
+          weeklyQuests: quests,
+          isLoading: false,
+        ),
 
         // Quest List
         ...quests.map((quest) => Padding(
@@ -381,7 +465,8 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
   }
 
   Widget _buildWeeklyQuestItem(BuildContext context, Map<String, dynamic> quest) {
-    final isCompleted = quest['is_completed'] ?? false;
+    // Check both possible structures for completion status
+    final isCompleted = quest['assignment']?['is_completed'] ?? quest['is_completed'] ?? false;
     final categoryIcon = QuestService.getCategoryIcon(quest['category'] ?? '');
     final duration = QuestService.formatDuration(quest['estimated_duration_minutes']);
 
@@ -483,7 +568,23 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
                           ],
                         ),
                       ),
-
+                      // Checkbox for quick completion
+                      Checkbox(
+                        value: isCompleted,
+                        onChanged: (bool? value) {
+                          if (value == true && !isCompleted) {
+                            // Complete directly without confirmation
+                            _completeQuestWithAnimation(quest);
+                          } else if (value == false && isCompleted) {
+                            // Unmark directly without confirmation
+                            _uncompleteQuest(quest);
+                          }
+                        },
+                        activeColor: const Color(0xFF6B8E6B),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
                     ],
                   ),
                 ],

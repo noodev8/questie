@@ -173,22 +173,63 @@ class QuestStampOverlay extends StatefulWidget {
 }
 
 class _QuestStampOverlayState extends State<QuestStampOverlay> {
-  bool _isAnimating = false;
+  OverlayEntry? _overlayEntry;
 
   @override
   void didUpdateWidget(QuestStampOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.showStamp && !oldWidget.showStamp && !_isAnimating) {
-      setState(() {
-        _isAnimating = true;
+    // Schedule overlay changes for after the current build cycle
+    if (widget.showStamp && !oldWidget.showStamp) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showOverlay();
+      });
+    }
+    // Stop animation when showStamp becomes false
+    if (!widget.showStamp && oldWidget.showStamp) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _hideOverlay();
       });
     }
   }
 
+  @override
+  void dispose() {
+    _hideOverlay();
+    super.dispose();
+  }
+
+  void _showOverlay() {
+    if (_overlayEntry != null) return;
+    if (!mounted) return; // Safety check
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: IgnorePointer(
+          ignoring: false, // Allow interactions to pass through
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.1), // Much more subtle background
+            child: Center(
+              child: QuestStampAnimation(
+                onComplete: _onStampComplete,
+                duration: const Duration(milliseconds: 600), // Shorter animation
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
   void _onStampComplete() {
-    setState(() {
-      _isAnimating = false;
-    });
+    _hideOverlay();
+    // Animation finished, call parent callback
     if (widget.onStampComplete != null) {
       widget.onStampComplete!();
     }
@@ -196,21 +237,7 @@ class _QuestStampOverlayState extends State<QuestStampOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        widget.child,
-        if (_isAnimating)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.3),
-              child: Center(
-                child: QuestStampAnimation(
-                  onComplete: _onStampComplete,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
+    // The overlay is managed separately, just return the child widget
+    return widget.child;
   }
 }

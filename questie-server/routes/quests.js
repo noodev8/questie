@@ -7,22 +7,13 @@
 
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const rateLimit = require('express-rate-limit');
 
 const { questManager, query } = require('../utils/database');
 const { authMiddleware } = require('../utils/tokenutils');
 
 const router = express.Router();
 
-// Rate limiting for quest endpoints
-const questLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes (shorter window)
-  max: 100, // increased limit for core functionality
-  message: {
-    return_code: 'RATE_LIMIT_EXCEEDED',
-    message: 'Too many quest requests, please try again later.'
-  }
-});
+// Rate limiting removed to allow unlimited quest interactions
 
 // Helper function to handle validation errors
 function handleValidationErrors(req, res, next) {
@@ -72,7 +63,7 @@ async function selectWeeklyQuests(userId, excludeQuestIds = []) {
 }
 
 // GET /api/quests/daily - Get user's daily quest
-router.get('/daily', authMiddleware.requireAuth, questLimiter, async (req, res) => {
+router.get('/daily', authMiddleware.requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const today = new Date();
@@ -131,7 +122,7 @@ router.get('/daily', authMiddleware.requireAuth, questLimiter, async (req, res) 
 });
 
 // GET /api/quests/weekly - Get user's weekly quests
-router.get('/weekly', authMiddleware.requireAuth, questLimiter, async (req, res) => {
+router.get('/weekly', authMiddleware.requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const weekStart = getMondayOfWeek();
@@ -195,7 +186,7 @@ router.get('/weekly', authMiddleware.requireAuth, questLimiter, async (req, res)
 });
 
 // POST /api/quests/daily/reroll - Reroll daily quest
-router.post('/daily/reroll', authMiddleware.requireAuth, questLimiter, async (req, res) => {
+router.post('/daily/reroll', authMiddleware.requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const today = new Date();
@@ -274,7 +265,7 @@ router.post('/daily/reroll', authMiddleware.requireAuth, questLimiter, async (re
 });
 
 // POST /api/quests/weekly/reroll - Reroll weekly quests
-router.post('/weekly/reroll', authMiddleware.requireAuth, questLimiter, async (req, res) => {
+router.post('/weekly/reroll', authMiddleware.requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const weekStart = getMondayOfWeek();
@@ -365,7 +356,7 @@ router.post('/weekly/reroll', authMiddleware.requireAuth, questLimiter, async (r
 });
 
 // GET /api/quests/:questId - Get quest details by ID
-router.get('/:questId', authMiddleware.requireAuth, questLimiter, async (req, res) => {
+router.get('/:questId', authMiddleware.requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { questId } = req.params;
@@ -444,7 +435,7 @@ router.get('/:questId', authMiddleware.requireAuth, questLimiter, async (req, re
 });
 
 // POST /api/quests/complete - Complete a quest
-router.post('/complete', authMiddleware.requireAuth, questLimiter, [
+router.post('/complete', authMiddleware.requireAuth, [
   body('assignment_id').isInt({ min: 1 }).withMessage('Valid assignment ID required'),
   body('completion_notes').optional().isString().isLength({ max: 500 }).withMessage('Completion notes must be 500 characters or less')
 ], handleValidationErrors, async (req, res) => {
@@ -486,7 +477,7 @@ router.post('/complete', authMiddleware.requireAuth, questLimiter, [
 });
 
 // POST /api/quests/uncomplete - Uncomplete a quest (undo completion)
-router.post('/uncomplete', authMiddleware.requireAuth, questLimiter, [
+router.post('/uncomplete', authMiddleware.requireAuth, [
   body('assignment_id').isInt({ min: 1 }).withMessage('Valid assignment ID required')
 ], handleValidationErrors, async (req, res) => {
   try {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/router/app_router.dart';
 import '../../../services/user_service.dart';
+import '../../../shared/widgets/questie_sticker.dart';
 
 class BadgesSection extends ConsumerStatefulWidget {
   const BadgesSection({super.key});
@@ -170,202 +171,47 @@ class _BadgesSectionState extends ConsumerState<BadgesSection> {
     final isEarned = badge['is_earned'] == true;
     final theme = Theme.of(context);
 
-    return GestureDetector(
-      onTap: () => _showBadgeDetails(context, badge),
-      child: Container(
-        // Ensure consistent sizing for all badges
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20), // More rounded for Material 3
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.shadow.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            // Main badge container with cute styling
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              decoration: BoxDecoration(
-                gradient: isEarned
-                    ? LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          theme.colorScheme.primaryContainer,
-                          theme.colorScheme.primaryContainer.withValues(alpha: 0.8),
-                          theme.colorScheme.primary.withValues(alpha: 0.1),
-                        ],
-                      )
-                    : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          theme.colorScheme.surfaceContainerHighest,
-                          theme.colorScheme.surfaceContainer,
-                          theme.colorScheme.surfaceContainerHigh,
-                        ],
-                      ),
-                borderRadius: BorderRadius.circular(24), // More rounded for cuteness
-                border: Border.all(
-                  color: isEarned
-                      ? theme.colorScheme.primary.withValues(alpha: 0.4)
-                      : theme.colorScheme.outline.withValues(alpha: 0.15),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isEarned
-                        ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                        : theme.colorScheme.shadow.withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12), // More generous padding for 3-column layout
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Badge icon with cute styling and lock overlay
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Main badge icon with cute circular design
-                        Container(
-                          width: 40, // Larger for cuteness
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient: isEarned
-                                ? RadialGradient(
-                                    center: Alignment.topLeft,
-                                    radius: 1.2,
-                                    colors: [
-                                      theme.colorScheme.primary.withValues(alpha: 0.9),
-                                      theme.colorScheme.primary,
-                                      theme.colorScheme.primary.withValues(alpha: 0.8),
-                                    ],
-                                  )
-                                : RadialGradient(
-                                    center: Alignment.topLeft,
-                                    radius: 1.2,
-                                    colors: [
-                                      theme.colorScheme.surfaceContainerHigh,
-                                      theme.colorScheme.surfaceContainer,
-                                      theme.colorScheme.surfaceContainerHighest,
-                                    ],
-                                  ),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isEarned
-                                  ? theme.colorScheme.primary.withValues(alpha: 0.3)
-                                  : theme.colorScheme.outline.withValues(alpha: 0.2),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: isEarned
-                                    ? theme.colorScheme.primary.withValues(alpha: 0.2)
-                                    : theme.colorScheme.shadow.withValues(alpha: 0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            _getBadgeIconByCategory(badge['category'], badge['icon']),
-                            color: isEarned
-                                ? theme.colorScheme.onPrimary
-                                : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                            size: 20, // Larger icon for cuteness
-                          ),
-                        ),
-
-                        // Cute lock overlay for locked badges
-                        if (!isEarned)
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withValues(alpha: 0.85),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.lock_rounded,
-                              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                              size: 16,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8), // More spacing for 3-column layout
-
-                    // Badge name with Material 3 typography - constrained to prevent overflow
-                    Flexible(
-                      child: Text(
-                        badge['name'] ?? 'Unknown Badge',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isEarned
-                              ? theme.colorScheme.onPrimaryContainer
-                              : theme.colorScheme.onSurface, // Darker text for better visibility
-                          fontSize: 11, // Larger for better readability
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2, // Allow 2 lines for longer badge names
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+    return Container(
+      // Ensure consistent sizing for all stickers
+      width: double.infinity,
+      height: double.infinity,
+      padding: const EdgeInsets.all(8), // Compact padding for profile section
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Main sticker with Questie icon
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: AnimatedQuestieSticker(
+                isEarned: isEarned,
+                category: badge['category'],
+                onTap: () => _showBadgeDetails(context, badge),
+                size: 50, // Smaller size for profile section
               ),
             ),
+          ),
 
-            // Lock overlay for locked badges with Material 3 styling
-            if (!isEarned) ...[
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.scrim.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(20),
-                ),
+          const SizedBox(height: 6),
+
+          // Badge name with Material 3 typography
+          Expanded(
+            flex: 1,
+            child: Text(
+              badge['name'] ?? 'Unknown Badge',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isEarned
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                fontSize: 10,
               ),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.error,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.shadow.withValues(alpha: 0.2),
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.lock_rounded, // More rounded Material 3 icon
-                    color: theme.colorScheme.onError,
-                    size: 10,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/quest_service.dart';
-import '../../../shared/widgets/quest_stamp_animation.dart';
+import '../../../shared/widgets/quest_completion_indicator.dart';
 
 class QuestDetailsScreen extends ConsumerStatefulWidget {
   final String questId;
@@ -22,6 +22,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   bool _showStamp = false;
   List<dynamic> _completionBadges = [];
   bool _isProcessing = false; // Prevent rapid clicking
+  bool _questWasCompleted = false; // Track if quest was completed for refresh
 
   @override
   void initState() {
@@ -138,6 +139,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   }
 
   void _onStampComplete() {
+    // Mark that a quest was completed for refresh purposes
+    _questWasCompleted = true;
+
     // Stay on the same page and show completion message
     if (_completionBadges.isNotEmpty) {
       final badgeNames = _completionBadges.map((badge) => badge['name']).join(', ');
@@ -162,10 +166,19 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return QuestStampOverlay(
-      showStamp: _showStamp,
-      onStampComplete: _onStampComplete,
-      child: _buildContent(context),
+    return Stack(
+      children: [
+        _buildContent(context),
+        // Show floating completion animation when needed
+        if (_showStamp)
+          Positioned.fill(
+            child: Center(
+              child: FloatingQuestCompletionAnimation(
+                onComplete: _onStampComplete,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -614,7 +627,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
           width: double.infinity,
           child: OutlinedButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(_questWasCompleted);
             },
             child: const Text('Back to Home'),
           ),
@@ -689,6 +702,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
       if (result != null) {
         if (mounted) {
+          // Mark that a quest was modified for refresh purposes
+          _questWasCompleted = true;
+
           // Reload quest details to update UI state
           await _loadQuestDetails();
 

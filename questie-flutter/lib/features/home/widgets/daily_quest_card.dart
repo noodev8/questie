@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../services/quest_service.dart';
-import '../../../shared/widgets/quest_stamp_animation.dart';
+import '../../../services/user_service.dart';
+import '../../../shared/widgets/quest_completion_indicator.dart';
 
 class DailyQuestCard extends StatefulWidget {
   final VoidCallback? onQuestCompleted;
@@ -19,11 +20,24 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
   Map<String, dynamic>? _dailyQuest;
   bool _isLoading = true;
   String? _error;
+  bool _showStamp = false;
+  List<dynamic> _completionBadges = [];
 
   @override
   void initState() {
     super.initState();
     _loadDailyQuest();
+  }
+
+  @override
+  void didUpdateWidget(DailyQuestCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Schedule reload for next frame to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadDailyQuest();
+      }
+    });
   }
 
   Future<void> _loadDailyQuest() async {
@@ -55,6 +69,23 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
 
   @override
   Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        _buildContent(context),
+        // Show floating completion animation when needed
+        if (_showStamp)
+          Positioned.fill(
+            child: Center(
+              child: FloatingQuestCompletionAnimation(
+                onComplete: _onStampComplete,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoading) {
       return _buildLoadingCard(context);
     }
@@ -146,40 +177,25 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
     }
   }
 
-  Future<void> _showCompleteQuestDialog(BuildContext context, Map<String, dynamic> quest) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Complete Quest'),
-        content: Text('Are you sure you want to mark "${quest['title']}" as completed?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Complete'),
-          ),
-        ],
-      ),
-    );
 
-    if (confirmed == true) {
-      await _completeQuest(quest);
-    }
-  }
 
-  Future<void> _completeQuest(Map<String, dynamic> quest) async {
+
+
+  Future<void> _uncompleteQuest(Map<String, dynamic> quest) async {
     try {
-      final result = await QuestService.completeQuest(
+      final result = await QuestService.uncompleteQuest(
         quest['assignment_id'],
-        completionNotes: 'Completed from daily quest card',
       );
 
       if (result != null) {
-        // Reload daily quest to reflect the completion
-        await _loadDailyQuest();
+        // Update quest state locally to avoid full reload and potential scrolling
+        if (mounted && _dailyQuest != null) {
+          setState(() {
+            // Update quest completion status directly on the quest object
+            _dailyQuest!['is_completed'] = false;
+            _dailyQuest!['completed_at'] = null;
+          });
+        }
 
         // Call the callback to notify parent widget
         if (widget.onQuestCompleted != null) {
@@ -187,27 +203,57 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         }
 
         if (mounted) {
-          // Check if any badges were earned
-          final newlyEarnedBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quest unmarked successfully!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to unmark quest. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
-          if (newlyEarnedBadges.isNotEmpty) {
-            // Show badge earned notification
-            final badgeNames = newlyEarnedBadges.map((badge) => badge['name']).join(', ');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Daily quest completed! 🏆 New badges earned: $badgeNames'),
-                backgroundColor: Colors.amber[700],
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Daily quest completed successfully!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+
+
+  Future<void> _completeQuestWithAnimation(Map<String, dynamic> quest) async {
+    try {
+      final result = await QuestService.completeQuest(
+        quest['assignment_id'],
+        completionNotes: 'Completed from daily quest card',
+      );
+
+      if (result != null) {
+        // Store the badge info for the stamp completion handler
+        _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
+
+        // Update quest state locally immediately
+        if (mounted && _dailyQuest != null) {
+          setState(() {
+            // Update quest completion status directly on the quest object
+            _dailyQuest!['is_completed'] = true;
+            _dailyQuest!['completed_at'] = DateTime.now().toIso8601String();
+            // Show completion animation
+            _showStamp = true;
+          });
         }
       } else {
         if (mounted) {
@@ -229,6 +275,26 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         );
       }
     }
+  }
+
+  void _onStampComplete() {
+    // Reset the stamp animation state
+    if (mounted) {
+      setState(() {
+        _showStamp = false;
+      });
+    }
+
+    // Clear user stats cache to ensure fresh data
+    UserService.clearStatsCache();
+
+    // Update stats without causing scroll issues
+    if (widget.onQuestCompleted != null) {
+      widget.onQuestCompleted!();
+    }
+
+    // No snackbar messages - just animation and DB update
+    // Note: Quest state is already updated in _completeQuestWithAnimation
   }
 
   Widget _buildLoadingCard(BuildContext context) {
@@ -306,7 +372,8 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
   Widget _buildQuestCard(BuildContext context, Map<String, dynamic> quest) {
     final categoryIcon = QuestService.getCategoryIcon(quest['category'] ?? '');
     final duration = QuestService.formatDuration(quest['estimated_duration_minutes']);
-    final isCompleted = quest['is_completed'] ?? false;
+    // Check both possible structures for completion status
+    final isCompleted = quest['assignment']?['is_completed'] ?? quest['is_completed'] ?? false;
 
     return Container(
       decoration: BoxDecoration(
@@ -405,21 +472,29 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      _buildQuestTag(context, Icons.category_outlined, quest['category'] ?? 'Quest'),
-                      _buildQuestTag(context, Icons.schedule_outlined, duration),
-                      _buildQuestTag(context, Icons.star_outline, '${quest['points'] ?? 0} pts'),
+                      _buildQuestTag(context, quest['category'] ?? 'Quest'),
+                      _buildQuestTag(context, duration),
+                      _buildQuestTag(context, '${quest['points'] ?? 0} pts'),
                     ],
                   ),
                 ),
-                if (!isCompleted) ...[
-                  IconButton(
-                    onPressed: () => _showCompleteQuestDialog(context, quest),
-                    icon: const Icon(Icons.check_circle_outline),
-                    iconSize: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                    tooltip: 'Mark as completed',
+                // Checkbox for quick completion
+                Checkbox(
+                  value: isCompleted,
+                  onChanged: (bool? value) {
+                    if (value == true && !isCompleted) {
+                      // Complete directly without confirmation
+                      _completeQuestWithAnimation(quest);
+                    } else if (value == false && isCompleted) {
+                      // Unmark directly without confirmation
+                      _uncompleteQuest(quest);
+                    }
+                  },
+                  activeColor: const Color(0xFF6B8E6B),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ],
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -486,30 +561,20 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
     );
   }
 
-  Widget _buildQuestTag(BuildContext context, IconData icon, String label) {
+  Widget _buildQuestTag(BuildContext context, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+          fontSize: 10,
+        ),
       ),
     );
   }
