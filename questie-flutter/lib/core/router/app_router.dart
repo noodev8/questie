@@ -8,6 +8,7 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/history/screens/quest_history_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/badges/screens/badges_screen.dart';
+import '../../features/weekly_quests/screens/weekly_quests_screen.dart';
 import '../../shared/widgets/main_navigation.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
@@ -127,6 +128,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'badges',
             builder: (context, state) => const BadgesScreen(),
           ),
+          GoRoute(
+            path: '/weekly-quests',
+            name: 'weekly-quests',
+            builder: (context, state) => const WeeklyQuestsScreen(),
+          ),
         ],
       ),
 
@@ -167,5 +173,9 @@ class AppRouter {
 
   static void goToStickers(BuildContext context) {
     context.push('/badges');
+  }
+
+  static void goToWeeklyQuests(BuildContext context) {
+    context.go('/weekly-quests');
   }
 }

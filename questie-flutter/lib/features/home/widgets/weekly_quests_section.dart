@@ -60,12 +60,7 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
             _weeklyQuests = questData['quests'];
             _isLoading = false;
           });
-          // Debug: Print the quest data to see can_reroll status
-          print('Weekly quests loaded: ${questData['quests']?.length} quests');
-          print('Can reroll: ${questData['can_reroll']}');
-          if (questData['quests'] != null && questData['quests'].isNotEmpty) {
-            print('First quest can_reroll: ${questData['quests'][0]['can_reroll']}');
-          }
+
         }
       } else {
         if (mounted) {
@@ -396,9 +391,9 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.calendar_month,
-                color: const Color(0xFF6B8E6B),
+                color: Color(0xFF6B8E6B),
                 size: 18,
               ),
               const SizedBox(width: 8),
@@ -453,13 +448,10 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
       onTap: () async {
         final questId = quest['quest_id']?.toString();
         if (questId != null && questId.isNotEmpty) {
-          print('Navigating to quest details: $questId'); // Debug log
           final result = await context.push('/quest/$questId');
           if (result == true && widget.onQuestCompleted != null) {
             widget.onQuestCompleted!();
           }
-        } else {
-          print('Quest ID is null or empty: ${quest['quest_id']}'); // Debug log
         }
       },
         child: Container(

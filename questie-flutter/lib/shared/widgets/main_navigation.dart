@@ -31,14 +31,17 @@ class MainNavigation extends StatelessWidget {
       case '/home':
         currentIndex = 0;
         break;
-      case '/profile':
+      case '/weekly-quests':
         currentIndex = 1;
         break;
-      case '/history':
+      case '/profile':
         currentIndex = 2;
         break;
-      case '/settings':
+      case '/history':
         currentIndex = 3;
+        break;
+      case '/settings':
+        currentIndex = 4;
         break;
     }
 
@@ -72,6 +75,11 @@ class MainNavigation extends StatelessWidget {
                 label: 'Home',
               ),
               BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_month_outlined),
+                activeIcon: Icon(Icons.calendar_month),
+                label: 'Weekly',
+              ),
+              BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),
                 activeIcon: Icon(Icons.person),
                 label: 'Profile',
@@ -93,12 +101,15 @@ class MainNavigation extends StatelessWidget {
                   context.go('/home');
                   break;
                 case 1:
-                  context.go('/profile');
+                  context.go('/weekly-quests');
                   break;
                 case 2:
-                  context.go('/history');
+                  context.go('/profile');
                   break;
                 case 3:
+                  context.go('/history');
+                  break;
+                case 4:
                   context.go('/settings');
                   break;
               }

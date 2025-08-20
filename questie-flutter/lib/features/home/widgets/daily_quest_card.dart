@@ -465,13 +465,10 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
                       onPressed: () async {
                         final questId = quest['quest_id']?.toString();
                         if (questId != null && questId.isNotEmpty) {
-                          print('Daily quest - Navigating to quest details: $questId'); // Debug log
                           final result = await context.push('/quest/$questId');
                           if (result == true && widget.onQuestCompleted != null) {
                             widget.onQuestCompleted!();
                           }
-                        } else {
-                          print('Daily quest - Quest ID is null or empty: ${quest['quest_id']}'); // Debug log
                         }
                       },
                       child: const Text('Start Quest'),

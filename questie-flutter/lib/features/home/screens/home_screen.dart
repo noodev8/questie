@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/router/app_router.dart';
 import '../widgets/daily_quest_card.dart';
-import '../widgets/weekly_quests_section.dart';
 import '../widgets/quick_stats_card.dart';
 import '../../../services/user_service.dart';
 
@@ -49,42 +48,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context),
-              const SizedBox(height: 8), // Reduced from 16 to 8
+              // Hero Section
+              _buildHeroSection(context),
+              const SizedBox(height: 32),
 
-              // Progress Stats
-              QuickStatsCard(
-                key: ValueKey('quick_stats_$_refreshCounter'),
-              ),
-              const SizedBox(height: 24),
+              // Progress Stats Section
+              _buildStatsSection(context),
+              const SizedBox(height: 32),
 
               // Daily Quest Section
               _buildDailyQuestSection(context),
               const SizedBox(height: 32),
 
-              // Divider
-              Container(
-                height: 1,
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      const Color(0xFF6B8E6B).withValues(alpha: 0.3),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Weekly Quests (5 tasks)
-              WeeklyQuestsSection(
-                key: ValueKey('weekly_quests_$_refreshCounter'),
-                onQuestCompleted: _onQuestCompleted,
-              ),
-              const SizedBox(height: 32),
-              
               // Quick Actions
               _buildQuickActions(context),
             ],
@@ -94,8 +69,113 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return const SizedBox.shrink(); // Remove the header content
+  Widget _buildHeroSection(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Color(0xFFF8FDF8), // Very light green tint
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: const Color(0xFF6B8E6B).withValues(alpha: 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 16),
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // App icon or illustration
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6B8E6B).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.explore_outlined,
+              size: 32,
+              color: Color(0xFF6B8E6B),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Hero text
+          Text(
+            'Making everyday an adventure',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF2D4A2D),
+              height: 1.2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+
+          Text(
+            'Transform your daily routine into exciting quests and build lasting habits one adventure at a time.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Colors.grey[600],
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.analytics_outlined,
+                color: Color(0xFF6B8E6B),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Your Progress',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF6B8E6B),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Stats card
+        QuickStatsCard(
+          key: ValueKey('quick_stats_$_refreshCounter'),
+        ),
+      ],
+    );
   }
 
   Widget _buildDailyQuestSection(BuildContext context) {

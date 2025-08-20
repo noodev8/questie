@@ -73,9 +73,9 @@ class AppHeader extends ConsumerWidget {
                       color: const Color(0xFF6B8E6B).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.person,
-                      color: const Color(0xFF6B8E6B),
+                      color: Color(0xFF6B8E6B),
                       size: 18,
                     ),
                   ),
