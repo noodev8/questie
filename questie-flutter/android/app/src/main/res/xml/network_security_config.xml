@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Production configuration - only HTTPS allowed -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">questie.noodev8.com</domain>
+        <trust-anchors>
+            <!-- Trust system certificate authorities -->
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Development configuration - allow cleartext for local development -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Local development IPs -->
+        <domain includeSubdomains="false">192.168.0.15</domain>
+        <domain includeSubdomains="false">192.168.1.187</domain>
+        <domain includeSubdomains="false">192.168.1.173</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+    
+    <!-- Default configuration - require HTTPS for all other domains -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>
