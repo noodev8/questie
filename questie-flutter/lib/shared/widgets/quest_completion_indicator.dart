@@ -231,8 +231,8 @@ class _FloatingQuestCompletionAnimationState extends State<FloatingQuestCompleti
             child: Opacity(
               opacity: _opacityAnimation.value,
               child: Container(
-                width: 60,
-                height: 60,
+                width: 120, // Made bigger for more impact
+                height: 120, // Made bigger for more impact
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white,
@@ -243,13 +243,14 @@ class _FloatingQuestCompletionAnimationState extends State<FloatingQuestCompleti
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF6B8E6B).withValues(alpha: 0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      blurRadius: 20, // Increased for bigger animation
+                      offset: const Offset(0, 6), // Slightly more offset
+                      spreadRadius: 2, // Added spread for more impact
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(16), // Increased padding for bigger size
                   child: Image.asset(
                     _selectedIcon,
                     fit: BoxFit.contain,
