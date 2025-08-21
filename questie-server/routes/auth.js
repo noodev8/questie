@@ -22,7 +22,7 @@ const authLimiter = rateLimit({
   max: 5, // limit each IP to 5 requests per windowMs for auth endpoints
   message: {
     return_code: 'RATE_LIMIT_EXCEEDED',
-    message: 'Too many authentication attempts, please try again later.'
+    message: 'Too many attempts, please try again later.'
   }
 });
 
