@@ -3,97 +3,160 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../core/router/app_router.dart';
 
 class DialogService {
-  static GlobalKey<NavigatorState>? _navigatorKey;
-  
-  // Initialize with the navigator key
-  static void initialize(GlobalKey<NavigatorState> navigatorKey) {
-    _navigatorKey = navigatorKey;
-  }
-  
-  // Get the current context
-  static BuildContext? get _context => _navigatorKey?.currentContext;
-  
-  // Show email verification dialog
+  // Show email verification dialog using the global navigator key
   static Future<void> showEmailVerificationDialog(String email) async {
-    final context = _context;
-    if (context == null) {
-      print('DialogService: No context available');
-      return;
+    final context = rootNavigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      return _showDialogInternal(context, email);
     }
-    
+    debugPrint('DialogService: No valid context available from navigator key');
+  }
+
+  // Internal method to show the dialog with a valid context
+  static Future<void> _showDialogInternal(BuildContext context, String email) async {
     final theme = Theme.of(context);
-    
+
     try {
       await showDialog(
         context: context,
-        barrierDismissible: false,
+        barrierDismissible: false, // Modal dialog - blocks background interaction
         builder: (dialogContext) => AlertDialog(
-          icon: Icon(
-            Icons.mark_email_unread,
-            size: 48,
-            color: theme.colorScheme.primary,
+          // Icon with generous spacing
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.mark_email_unread_outlined,
+              size: 48,
+              color: theme.colorScheme.primary,
+            ),
           ),
-          title: const Text('Check Your Email'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'We\'ve sent a verification email to:',
-                style: theme.textTheme.bodyMedium,
-                textAlign: TextAlign.center,
+
+          // Title with proper spacing
+          title: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Verification Email Sent',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  email,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onPrimaryContainer,
+              textAlign: TextAlign.center,
+            ),
+          ),
+
+          // Content with clear messaging and lots of white space
+          content: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'A verification email has been sent to:',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Please check your email and click the verification link to activate your account.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                const SizedBox(height: 16),
+
+                // Email address in highlighted container
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    email,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                // Navigate to email verification screen
-                context.pushReplacement('/email-verification', extra: {
-                  'email': email,
-                });
-              },
-              child: const Text('Resend Email'),
+                const SizedBox(height: 24),
+
+                // Instructions with clear messaging
+                Text(
+                  'Please check your email and click the verification link to activate your account.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'You must verify your email before you can log in.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                // Go back to login
-                context.pop();
-              },
-              child: const Text('Back to Login'),
+          ),
+
+          // Single action button with proper spacing
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    // Navigate back to login screen
+                    if (context.mounted) {
+                      context.go('/login');
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
+
+          // Dialog styling with lots of white space
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          actionsPadding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
       );
     } catch (e) {
-      print('DialogService: Error showing dialog: $e');
+      debugPrint('DialogService: Error showing dialog: $e');
     }
+  }
+
+  // Test method to manually show the dialog (for development/testing)
+  static Future<void> showTestEmailVerificationDialog() async {
+    await showEmailVerificationDialog('test@example.com');
   }
 }

@@ -1,6 +1,7 @@
 // Authentication Provider - Manages authentication state using Riverpod
 // Handles login state, user session, token persistence, and automatic login/logout
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
@@ -114,13 +115,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       if (result['success']) {
+        debugPrint('Registration successful for: $email');
         state = state.copyWith(
           isLoading: false,
           error: null,
           registrationEmail: email, // Store the email for popup
         );
+        debugPrint('Auth state updated with registrationEmail: $email');
         return true;
       } else {
+        debugPrint('Registration failed: ${result['message']}');
         _setError(result['message'] ?? 'Registration failed');
         return false;
       }

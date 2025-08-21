@@ -22,14 +22,6 @@ class QuestieApp extends ConsumerStatefulWidget {
 }
 
 class _QuestieAppState extends ConsumerState<QuestieApp> {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize dialog service with navigator key
-    DialogService.initialize(_navigatorKey);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,9 +31,13 @@ class _QuestieAppState extends ConsumerState<QuestieApp> {
 
     // Listen for registration success to show popup
     ref.listen<AuthState>(authProvider, (previous, next) {
+      debugPrint('Auth state changed - registrationEmail: ${next.registrationEmail}, previous: ${previous?.registrationEmail}');
       if (next.registrationEmail != null && previous?.registrationEmail == null) {
         // Registration just completed, show popup
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        debugPrint('Registration completed for: ${next.registrationEmail}');
+        // Use a delay to ensure the navigator is fully ready
+        Future.delayed(const Duration(milliseconds: 200), () {
+          debugPrint('Showing email verification dialog');
           DialogService.showEmailVerificationDialog(next.registrationEmail!);
           // Clear the registration email after showing popup
           ref.read(authProvider.notifier).clearRegistrationEmail();

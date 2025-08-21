@@ -17,6 +17,9 @@ import '../../screens/auth/forgot_password_screen.dart';
 import '../../screens/auth/reset_password_screen.dart';
 import '../../providers/auth_provider.dart';
 
+// Global navigator key for the router
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 // Custom change notifier for auth state changes
 class _AuthChangeNotifier extends ChangeNotifier {
   final Ref _ref;
@@ -34,6 +37,7 @@ class _AuthChangeNotifier extends ChangeNotifier {
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/login', // Always start at login, let redirect handle the logic
     redirect: (context, state) {
       final authState = ref.read(authProvider); // Use read instead of watch to avoid rebuilds
