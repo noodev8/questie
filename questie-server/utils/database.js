@@ -759,7 +759,7 @@ const questManager = {
       try {
         const badgeStartTime = Date.now();
         console.log(`🏆 Checking badges for user ${userId}`);
-        newlyEarnedBadges = await badgeManager.checkAndAwardBadges(userId);
+        newlyEarnedBadges = await badgeManager.checkAndAwardBadgesOptimized(userId);
         const badgeTime = Date.now() - badgeStartTime;
         if (newlyEarnedBadges.length > 0) {
           console.log(`🎉 User ${userId} earned ${newlyEarnedBadges.length} new badges in ${badgeTime}ms:`, newlyEarnedBadges.map(b => b.name));

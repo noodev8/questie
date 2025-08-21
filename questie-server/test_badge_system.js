@@ -124,7 +124,7 @@ async function testBadgeSystem() {
       const { badgeManager } = require('./utils/database');
       
       try {
-        const newBadges = await badgeManager.checkAndAwardBadges(testUserId);
+        const newBadges = await badgeManager.checkAndAwardBadgesOptimized(testUserId);
         console.log(`  ✅ Badge check completed! Awarded ${newBadges.length} badges:`);
         newBadges.forEach(badge => {
           console.log(`     - ${badge.name} (${badge.requirement_type}: ${badge.requirement_value})`);

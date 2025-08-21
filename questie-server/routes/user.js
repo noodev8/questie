@@ -134,8 +134,8 @@ router.post('/badges/check', authMiddleware.requireAuth, userLimiter, async (req
   try {
     const userId = req.user.userId;
 
-    // Check and award badges
-    const newlyEarnedBadges = await badgeManager.checkAndAwardBadges(userId);
+    // Check and award badges using optimized method
+    const newlyEarnedBadges = await badgeManager.checkAndAwardBadgesOptimized(userId);
 
     res.json({
       return_code: 'SUCCESS',
