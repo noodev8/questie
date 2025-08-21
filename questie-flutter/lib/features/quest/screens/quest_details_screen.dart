@@ -95,11 +95,8 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
       if (result != null) {
         if (mounted) {
-          // Update quest state directly without reloading
-          if (_quest != null && _quest!['assignment'] != null) {
-            _quest!['assignment']['is_completed'] = true;
-            _quest!['assignment']['completed_at'] = DateTime.now().toIso8601String();
-          }
+          // Reload quest data to get updated status from server
+          _loadQuestDetails();
 
           // Store the badge info for the stamp completion handler
           _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
@@ -231,8 +228,15 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     }
 
     final quest = _quest!;
-    
-    return Scaffold(
+
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        // Return true if a quest was completed/uncompleted to trigger refresh in parent
+        if (didPop && _questWasCompleted) {
+          Navigator.of(context).pop(true);
+        }
+      },
+      child: Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -321,6 +325,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -681,8 +686,8 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
           // Mark that a quest was modified for refresh purposes
           _questWasCompleted = true;
 
-          // Reload quest details to update UI state
-          await _loadQuestDetails();
+          // Reload quest data to get updated status from server
+          _loadQuestDetails();
 
           if (mounted) {
             setState(() {

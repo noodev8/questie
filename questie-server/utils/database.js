@@ -316,6 +316,27 @@ const questManager = {
     return quest;
   },
 
+  // Get user's current daily quest (direct from database, no caching)
+  async getUserDailyQuestDirect(userId, date = new Date()) {
+    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    const text = `
+      SELECT uqa.id as assignment_id, uqa.quest_id, uqa.assigned_date, uqa.is_completed,
+             uqa.completed_at, uqa.expires_at, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM user_quest_assignment uqa
+      JOIN quest q ON uqa.quest_id = q.id
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE uqa.user_id = $1
+      AND uqa.assignment_type = 'daily'
+      AND uqa.assigned_date = $2
+      ORDER BY uqa.created_at DESC
+      LIMIT 1
+    `;
+    const result = await query(text, [userId, dateStr]);
+    return result.rows[0];
+  },
+
   // Get user's current weekly quests (with caching)
   async getUserWeeklyQuests(userId, weekStart = null) {
     if (!weekStart) {
@@ -356,6 +377,35 @@ const questManager = {
     }
 
     return quests;
+  },
+
+  // Get user's current weekly quests (direct from database, no caching)
+  async getUserWeeklyQuestsDirect(userId, weekStart = null) {
+    if (!weekStart) {
+      // Calculate Monday of current week
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, Monday = 1
+      weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - daysToMonday);
+    }
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    const text = `
+      SELECT uqa.id as assignment_id, uqa.quest_id, uqa.assigned_date, uqa.is_completed,
+             uqa.completed_at, uqa.expires_at, q.title, q.description, q.difficulty_level,
+             q.points, q.estimated_duration_minutes, qc.name as category_name
+      FROM user_quest_assignment uqa
+      JOIN quest q ON uqa.quest_id = q.id
+      JOIN quest_category qc ON q.category_id = qc.id
+      WHERE uqa.user_id = $1
+      AND uqa.assignment_type = 'weekly'
+      AND uqa.assigned_date = $2
+      ORDER BY uqa.created_at DESC, q.difficulty_level, q.title
+      LIMIT 5
+    `;
+    const result = await query(text, [userId, weekStartStr]);
+    return result.rows;
   },
 
   // Assign daily quest to user
@@ -1363,6 +1413,10 @@ questManager.uncompleteQuest = async function(userId, assignmentId) {
       console.log(`✅ User stats updated successfully`);
 
       await client.query('COMMIT');
+
+      // Clear user cache after quest uncompletion
+      cacheHelpers.clearUserCache(userId);
+      console.log(`📦 Cache cleared for user ${userId} after quest uncompletion`);
 
       return {
         assignment: updateResult.rows[0],

@@ -189,17 +189,18 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
       );
 
       if (result != null) {
-        // Update quest state locally to avoid full reload and potential scrolling
-        if (mounted && _dailyQuest != null) {
-          setState(() {
-            // Update quest completion status directly on the quest object
-            _dailyQuest!['is_completed'] = false;
-            _dailyQuest!['completed_at'] = null;
-          });
+        // Reload quest data to get updated status from server
+        if (mounted) {
+          _loadDailyQuest();
         }
 
-        // Don't call onQuestCompleted to prevent screen jumping
-        // The local state is already updated, and stats cache is cleared
+        // Clear user stats cache to ensure fresh data
+        UserService.clearStatsCache();
+
+        // Notify parent about quest status change to trigger refresh
+        if (widget.onQuestCompleted != null) {
+          widget.onQuestCompleted!();
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -244,15 +245,14 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         // Store the badge info for the stamp completion handler
         _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
 
-        // Update quest state locally immediately
-        if (mounted && _dailyQuest != null) {
+        // Show completion animation and reload data
+        if (mounted) {
           setState(() {
-            // Update quest completion status directly on the quest object
-            _dailyQuest!['is_completed'] = true;
-            _dailyQuest!['completed_at'] = DateTime.now().toIso8601String();
-            // Show completion animation
             _showStamp = true;
           });
+
+          // Reload quest data to get updated status from server
+          _loadDailyQuest();
         }
       } else {
         if (mounted) {
@@ -287,9 +287,10 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
     // Clear user stats cache to ensure fresh data
     UserService.clearStatsCache();
 
-    // Don't call onQuestCompleted here to prevent screen jumping
-    // The local state is already updated, and stats cache is cleared
-    // Parent will get updated stats when it naturally refreshes
+    // Notify parent about quest completion to trigger refresh
+    if (widget.onQuestCompleted != null) {
+      widget.onQuestCompleted!();
+    }
 
     // No snackbar messages - just animation and DB update
     // Note: Quest state is already updated in _completeQuestWithAnimation

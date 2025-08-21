@@ -68,8 +68,8 @@ router.get('/daily', authMiddleware.requireAuth, async (req, res) => {
     const userId = req.user.userId;
     const today = new Date();
     
-    // Check if user already has a daily quest for today
-    let dailyQuest = await questManager.getUserDailyQuest(userId, today);
+    // Check if user already has a daily quest for today (bypass cache for fresh data)
+    let dailyQuest = await questManager.getUserDailyQuestDirect(userId, today);
     
     if (!dailyQuest) {
       // Assign a new random daily quest (medium difficulty) specific to this user
@@ -127,8 +127,8 @@ router.get('/weekly', authMiddleware.requireAuth, async (req, res) => {
     const userId = req.user.userId;
     const weekStart = getMondayOfWeek();
     
-    // Check if user already has weekly quests for this week
-    let weeklyQuests = await questManager.getUserWeeklyQuests(userId, weekStart);
+    // Check if user already has weekly quests for this week (bypass cache for fresh data)
+    let weeklyQuests = await questManager.getUserWeeklyQuestsDirect(userId, weekStart);
     
     if (weeklyQuests.length === 0) {
       // Assign 5 new random weekly quests specific to this user
