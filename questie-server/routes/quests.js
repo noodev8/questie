@@ -39,7 +39,7 @@ function getMondayOfWeek(date = new Date()) {
 }
 
 // Helper function to select 5 random weekly quests with balanced difficulty
-async function selectWeeklyQuests(userId, excludeQuestIds = []) {
+async function selectWeeklyQuests(userId, excludeQuestIds = [], isReroll = false) {
   const quests = [];
 
   // Get 2 easy, 2 medium, 1 hard quest
@@ -51,7 +51,7 @@ async function selectWeeklyQuests(userId, excludeQuestIds = []) {
 
   for (const { level, count } of difficulties) {
     for (let i = 0; i < count; i++) {
-      const quest = await questManager.getRandomQuestByDifficultyForUser(userId, level, excludeQuestIds);
+      const quest = await questManager.getRandomQuestByDifficultyForUser(userId, level, excludeQuestIds, isReroll);
       if (quest) {
         quests.push(quest);
         excludeQuestIds.push(quest.id);
@@ -217,7 +217,7 @@ router.post('/daily/reroll', authMiddleware.requireAuth, async (req, res) => {
     }
 
     // Get a new random quest (excluding current one) specific to this user
-    const newQuest = await questManager.getRandomQuestByDifficultyForUser(userId, 'medium', [currentQuest.quest_id]);
+    const newQuest = await questManager.getRandomQuestByDifficultyForUser(userId, 'medium', [currentQuest.quest_id], true);
 
     if (!newQuest) {
       return res.status(500).json({
@@ -226,12 +226,20 @@ router.post('/daily/reroll', authMiddleware.requireAuth, async (req, res) => {
       });
     }
 
+    // Delete the old daily quest assignment
+    await questManager.deleteDailyQuest(userId, today);
+
     // Log the reroll
     await questManager.logReroll(userId, 'daily', today);
 
-    // Assign the new quest (this will create a second assignment for today)
+    // Assign the new quest
     await questManager.assignDailyQuest(userId, newQuest.id, today);
-    
+
+    // Clear the cache to ensure we get the fresh data
+    const { cacheHelpers } = require('../utils/cache');
+    const dateStr = today.toISOString().split('T')[0];
+    cacheHelpers.clearDailyQuest(userId, dateStr);
+
     // Get the updated daily quest
     const updatedQuest = await questManager.getUserDailyQuest(userId, today);
 
@@ -301,7 +309,7 @@ router.post('/weekly/reroll', authMiddleware.requireAuth, async (req, res) => {
     const currentQuestIds = currentQuests.map(q => q.quest_id);
 
     // Select new weekly quests (excluding current ones) specific to this user
-    const newQuests = await selectWeeklyQuests(userId, currentQuestIds);
+    const newQuests = await selectWeeklyQuests(userId, currentQuestIds, true);
 
     if (newQuests.length < 5) {
       return res.status(500).json({
@@ -319,6 +327,11 @@ router.post('/weekly/reroll', authMiddleware.requireAuth, async (req, res) => {
     // Assign the new quests (this will create new assignments for this week)
     const newQuestIds = newQuests.map(q => q.id);
     await questManager.assignWeeklyQuests(userId, newQuestIds, weekStart);
+
+    // Clear the cache to ensure we get the fresh data
+    const { cacheHelpers } = require('../utils/cache');
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    cacheHelpers.clearWeeklyQuests(userId, weekStartStr);
 
     // Get the updated weekly quests
     const updatedQuests = await questManager.getUserWeeklyQuests(userId, weekStart);

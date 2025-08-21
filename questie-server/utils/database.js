@@ -237,16 +237,24 @@ const questManager = {
   },
 
   // Get random quest by difficulty for specific user (ensures different users get different quests)
-  async getRandomQuestByDifficultyForUser(userId, difficulty, excludeQuestIds = []) {
+  async getRandomQuestByDifficultyForUser(userId, difficulty, excludeQuestIds = [], useRandomForReroll = false) {
     let excludeClause = '';
-    let params = [difficulty, userId];
+    let params = [difficulty];
 
     if (excludeQuestIds.length > 0) {
-      excludeClause = `AND q.id NOT IN (${excludeQuestIds.map((_, i) => `$${i + 3}`).join(',')})`;
+      excludeClause = `AND q.id NOT IN (${excludeQuestIds.map((_, i) => `$${i + 2}`).join(',')})`;
       params = params.concat(excludeQuestIds);
     }
 
-    // Use user ID as seed for consistent randomization per user per day
+    let orderClause;
+    if (useRandomForReroll) {
+      // Use true randomization for rerolls to ensure different quests
+      orderClause = 'ORDER BY RANDOM()';
+    } else {
+      // Use user ID as seed for consistent randomization per user per day for initial assignments
+      orderClause = `ORDER BY (q.id * ${userId} * EXTRACT(DOY FROM CURRENT_DATE)) % 1000`;
+    }
+
     const text = `
       SELECT q.id, q.category_id, q.title, q.description, q.difficulty_level,
              q.points, q.estimated_duration_minutes, qc.name as category_name
@@ -254,7 +262,7 @@ const questManager = {
       JOIN quest_category qc ON q.category_id = qc.id
       WHERE q.is_active = true AND qc.is_active = true
       AND q.difficulty_level = $1 ${excludeClause}
-      ORDER BY (q.id * $2 * EXTRACT(DOY FROM CURRENT_DATE)) % 1000
+      ${orderClause}
       LIMIT 1
     `;
     const result = await query(text, params);
@@ -445,6 +453,20 @@ const questManager = {
       ON CONFLICT (user_id, assignment_type, reroll_date) DO NOTHING
     `;
     await query(text, [userId, assignmentType, dateStr]);
+  },
+
+  // Delete daily quest assignment for a specific date
+  async deleteDailyQuest(userId, date) {
+    const dateStr = date.toISOString().split('T')[0];
+
+    const text = `
+      DELETE FROM user_quest_assignment
+      WHERE user_id = $1
+      AND assignment_type = 'daily'
+      AND assigned_date = $2
+    `;
+    const result = await query(text, [userId, dateStr]);
+    return result.rowCount;
   },
 
   // Delete weekly quest assignments for a specific week
