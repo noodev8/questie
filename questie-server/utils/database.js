@@ -1121,6 +1121,10 @@ const badgeManager = {
             progressValue = userData.current_streak_days;
             shouldAward = progressValue >= badge.requirement_value;
             break;
+          case 'current_streak':
+            progressValue = userData.current_streak_days;
+            shouldAward = progressValue >= badge.requirement_value;
+            break;
           case 'category_quest':
             const categoryName = badge.requirement_category?.toLowerCase();
             if (categoryName) {
@@ -1146,6 +1150,12 @@ const badgeManager = {
               progressValue = userData[`${season}_count`] || 0;
               shouldAward = progressValue >= badge.requirement_value;
             }
+            break;
+          case 'holiday_quest':
+            // For holiday quests, we need to check if current date is within the holiday period
+            // For now, set progress to 0 as this requires more complex date checking
+            progressValue = 0;
+            shouldAward = false;
             break;
           default:
             console.log(`Unknown badge requirement type: ${badge.requirement_type}`);
