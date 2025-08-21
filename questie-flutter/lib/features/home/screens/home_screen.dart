@@ -13,7 +13,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _refreshCounter = 0;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -32,10 +31,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Clear user stats cache to force refresh
     UserService.clearStatsCache();
 
-    // Trigger a rebuild to refresh quest data
-    setState(() {
-      _refreshCounter++;
-    });
+    // Use a more targeted refresh approach - individual quest components
+    // handle their own state updates optimistically, reducing visual disruption
+    // while ensuring data consistency. No need for full widget rebuilds.
   }
 
   @override
@@ -171,9 +169,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         const SizedBox(height: 16),
 
         // Stats card
-        QuickStatsCard(
-          key: ValueKey('quick_stats_$_refreshCounter'),
-        ),
+        const QuickStatsCard(),
       ],
     );
   }
@@ -224,7 +220,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // Daily Quest Card
         DailyQuestCard(
-          key: ValueKey('daily_quest_$_refreshCounter'),
           onQuestCompleted: _onQuestCompleted,
         ),
       ],

@@ -183,19 +183,27 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
 
 
   Future<void> _uncompleteQuest(Map<String, dynamic> quest) async {
+    // Optimistic UI update - immediately show uncompleted state
+    if (mounted) {
+      setState(() {
+        if (_dailyQuest != null && _dailyQuest!['assignment'] != null) {
+          _dailyQuest!['assignment']['is_completed'] = false;
+          _dailyQuest!['is_completed'] = false;
+        }
+      });
+    }
+
     try {
       final result = await QuestService.uncompleteQuest(
         quest['assignment_id'],
       );
 
       if (result != null) {
-        // Reload quest data to get updated status from server
-        if (mounted) {
-          _loadDailyQuest();
-        }
-
         // Clear user stats cache to ensure fresh data
         UserService.clearStatsCache();
+
+        // Reload quest data in background to get updated status from server
+        _loadDailyQuest();
 
         // Notify parent about quest status change to trigger refresh
         if (widget.onQuestCompleted != null) {
@@ -211,7 +219,15 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
           );
         }
       } else {
+        // Revert optimistic update on failure
         if (mounted) {
+          setState(() {
+            if (_dailyQuest != null && _dailyQuest!['assignment'] != null) {
+              _dailyQuest!['assignment']['is_completed'] = true;
+              _dailyQuest!['is_completed'] = true;
+            }
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to unmark quest. Please try again.'),
@@ -221,7 +237,15 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         }
       }
     } catch (e) {
+      // Revert optimistic update on error
       if (mounted) {
+        setState(() {
+          if (_dailyQuest != null && _dailyQuest!['assignment'] != null) {
+            _dailyQuest!['assignment']['is_completed'] = true;
+            _dailyQuest!['is_completed'] = true;
+          }
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
@@ -235,6 +259,18 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
 
 
   Future<void> _completeQuestWithAnimation(Map<String, dynamic> quest) async {
+    // Optimistic UI update - immediately show completed state
+    if (mounted) {
+      setState(() {
+        // Update the quest data optimistically
+        if (_dailyQuest != null && _dailyQuest!['assignment'] != null) {
+          _dailyQuest!['assignment']['is_completed'] = true;
+          _dailyQuest!['is_completed'] = true;
+        }
+        _showStamp = true;
+      });
+    }
+
     try {
       final result = await QuestService.completeQuest(
         quest['assignment_id'],
@@ -245,17 +281,19 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         // Store the badge info for the stamp completion handler
         _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
 
-        // Show completion animation and reload data
+        // Data is already updated optimistically, no need to reload immediately
+        // The background refresh will happen after animation completes
+      } else {
+        // Revert optimistic update on failure
         if (mounted) {
           setState(() {
-            _showStamp = true;
+            if (_dailyQuest != null && _dailyQuest!['assignment'] != null) {
+              _dailyQuest!['assignment']['is_completed'] = false;
+              _dailyQuest!['is_completed'] = false;
+            }
+            _showStamp = false;
           });
 
-          // Reload quest data to get updated status from server
-          _loadDailyQuest();
-        }
-      } else {
-        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to complete quest. Please try again.'),
@@ -265,7 +303,16 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
         }
       }
     } catch (e) {
+      // Revert optimistic update on error
       if (mounted) {
+        setState(() {
+          if (_dailyQuest != null && _dailyQuest!['assignment'] != null) {
+            _dailyQuest!['assignment']['is_completed'] = false;
+            _dailyQuest!['is_completed'] = false;
+          }
+          _showStamp = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
@@ -284,16 +331,21 @@ class _DailyQuestCardState extends State<DailyQuestCard> {
       });
     }
 
+    // Now that animation is complete, refresh data in background
+    _refreshDataInBackground();
+  }
+
+  Future<void> _refreshDataInBackground() async {
     // Clear user stats cache to ensure fresh data
     UserService.clearStatsCache();
+
+    // Reload quest data to get updated status from server (in background)
+    await _loadDailyQuest();
 
     // Notify parent about quest completion to trigger refresh
     if (widget.onQuestCompleted != null) {
       widget.onQuestCompleted!();
     }
-
-    // No snackbar messages - just animation and DB update
-    // Note: Quest state is already updated in _completeQuestWithAnimation
   }
 
   Widget _buildLoadingCard(BuildContext context) {

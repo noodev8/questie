@@ -191,19 +191,30 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
 
 
   Future<void> _uncompleteQuest(Map<String, dynamic> quest) async {
+    // Optimistic UI update - immediately show uncompleted state
+    if (mounted) {
+      setState(() {
+        if (_weeklyQuests != null) {
+          final questIndex = _weeklyQuests!.indexWhere((q) => q['assignment_id'] == quest['assignment_id']);
+          if (questIndex != -1 && _weeklyQuests![questIndex]['assignment'] != null) {
+            _weeklyQuests![questIndex]['assignment']['is_completed'] = false;
+            _weeklyQuests![questIndex]['is_completed'] = false;
+          }
+        }
+      });
+    }
+
     try {
       final result = await QuestService.uncompleteQuest(
         quest['assignment_id'],
       );
 
       if (result != null) {
-        // Reload quest data to get updated status from server
-        if (mounted) {
-          _loadWeeklyQuests();
-        }
-
         // Clear user stats cache to ensure fresh data
         UserService.clearStatsCache();
+
+        // Reload quest data in background to get updated status from server
+        _loadWeeklyQuests();
 
         // Notify parent about quest status change to trigger refresh
         if (widget.onQuestCompleted != null) {
@@ -219,7 +230,18 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
           );
         }
       } else {
+        // Revert optimistic update on failure
         if (mounted) {
+          setState(() {
+            if (_weeklyQuests != null) {
+              final questIndex = _weeklyQuests!.indexWhere((q) => q['assignment_id'] == quest['assignment_id']);
+              if (questIndex != -1 && _weeklyQuests![questIndex]['assignment'] != null) {
+                _weeklyQuests![questIndex]['assignment']['is_completed'] = true;
+                _weeklyQuests![questIndex]['is_completed'] = true;
+              }
+            }
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to unmark quest. Please try again.'),
@@ -229,7 +251,18 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         }
       }
     } catch (e) {
+      // Revert optimistic update on error
       if (mounted) {
+        setState(() {
+          if (_weeklyQuests != null) {
+            final questIndex = _weeklyQuests!.indexWhere((q) => q['assignment_id'] == quest['assignment_id']);
+            if (questIndex != -1 && _weeklyQuests![questIndex]['assignment'] != null) {
+              _weeklyQuests![questIndex]['assignment']['is_completed'] = true;
+              _weeklyQuests![questIndex]['is_completed'] = true;
+            }
+          }
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
@@ -241,6 +274,21 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
   }
 
   Future<void> _completeQuestWithAnimation(Map<String, dynamic> quest) async {
+    // Optimistic UI update - immediately show completed state
+    if (mounted) {
+      setState(() {
+        // Update the quest data optimistically
+        if (_weeklyQuests != null) {
+          final questIndex = _weeklyQuests!.indexWhere((q) => q['assignment_id'] == quest['assignment_id']);
+          if (questIndex != -1 && _weeklyQuests![questIndex]['assignment'] != null) {
+            _weeklyQuests![questIndex]['assignment']['is_completed'] = true;
+            _weeklyQuests![questIndex]['is_completed'] = true;
+          }
+        }
+        _showStamp = true;
+      });
+    }
+
     try {
       final result = await QuestService.completeQuest(
         quest['assignment_id'],
@@ -251,17 +299,22 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         // Store the badge info for the stamp completion handler
         _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
 
-        // Show completion animation and reload data
+        // Data is already updated optimistically, no need to reload immediately
+        // The background refresh will happen after animation completes
+      } else {
+        // Revert optimistic update on failure
         if (mounted) {
           setState(() {
-            _showStamp = true;
+            if (_weeklyQuests != null) {
+              final questIndex = _weeklyQuests!.indexWhere((q) => q['assignment_id'] == quest['assignment_id']);
+              if (questIndex != -1 && _weeklyQuests![questIndex]['assignment'] != null) {
+                _weeklyQuests![questIndex]['assignment']['is_completed'] = false;
+                _weeklyQuests![questIndex]['is_completed'] = false;
+              }
+            }
+            _showStamp = false;
           });
 
-          // Reload quest data to get updated status from server
-          _loadWeeklyQuests();
-        }
-      } else {
-        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to complete quest. Please try again.'),
@@ -271,7 +324,19 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
         }
       }
     } catch (e) {
+      // Revert optimistic update on error
       if (mounted) {
+        setState(() {
+          if (_weeklyQuests != null) {
+            final questIndex = _weeklyQuests!.indexWhere((q) => q['assignment_id'] == quest['assignment_id']);
+            if (questIndex != -1 && _weeklyQuests![questIndex]['assignment'] != null) {
+              _weeklyQuests![questIndex]['assignment']['is_completed'] = false;
+              _weeklyQuests![questIndex]['is_completed'] = false;
+            }
+          }
+          _showStamp = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
@@ -290,16 +355,21 @@ class _WeeklyQuestsSectionState extends State<WeeklyQuestsSection> {
       });
     }
 
+    // Now that animation is complete, refresh data in background
+    _refreshDataInBackground();
+  }
+
+  Future<void> _refreshDataInBackground() async {
     // Clear user stats cache to ensure fresh data
     UserService.clearStatsCache();
+
+    // Reload quest data to get updated status from server (in background)
+    await _loadWeeklyQuests();
 
     // Notify parent about quest completion to trigger refresh
     if (widget.onQuestCompleted != null) {
       widget.onQuestCompleted!();
     }
-
-    // No snackbar messages - just animation and DB update
-    // Note: Quest state is already updated in _completeQuestWithAnimation
   }
 
 
