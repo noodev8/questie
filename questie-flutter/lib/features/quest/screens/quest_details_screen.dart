@@ -83,11 +83,19 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
       return;
     }
 
-    try {
+    // Optimistic UI update - immediately show completed state
+    if (mounted) {
       setState(() {
         _isProcessing = true;
+        // Update the quest data optimistically
+        if (_quest != null && _quest!['assignment'] != null) {
+          _quest!['assignment']['is_completed'] = true;
+        }
+        _showStamp = true;
       });
+    }
 
+    try {
       final result = await QuestService.completeQuest(
         assignment['assignment_id'],
         completionNotes: 'Completed via quest details screen',
@@ -95,23 +103,26 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
       if (result != null) {
         if (mounted) {
-          // Reload quest data to get updated status from server
-          _loadQuestDetails();
-
           // Store the badge info for the stamp completion handler
           _completionBadges = result['newly_earned_badges'] as List<dynamic>? ?? [];
 
-          // Show stamp animation
           setState(() {
-            _showStamp = true;
             _isProcessing = false;
           });
+
+          // Data is already updated optimistically, background refresh will happen after animation
         }
       } else {
+        // Revert optimistic update on failure
         if (mounted) {
           setState(() {
+            if (_quest != null && _quest!['assignment'] != null) {
+              _quest!['assignment']['is_completed'] = false;
+            }
+            _showStamp = false;
             _isProcessing = false;
           });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to complete quest. Please try again.'),
@@ -139,6 +150,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     // Mark that a quest was completed for refresh purposes
     _questWasCompleted = true;
 
+    // Now that animation is complete, refresh data in background
+    _refreshDataInBackground();
+
     // Stay on the same page and show completion message
     if (_completionBadges.isNotEmpty) {
       final badgeNames = _completionBadges.map((badge) => badge['name']).join(', ');
@@ -158,7 +172,11 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
         ),
       );
     }
-    // Removed navigation - user stays on quest details page
+  }
+
+  Future<void> _refreshDataInBackground() async {
+    // Reload quest data to get updated status from server (in background)
+    await _loadQuestDetails();
   }
 
   @override
@@ -230,11 +248,10 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     final quest = _quest!;
 
     return PopScope(
+      canPop: true,
       onPopInvokedWithResult: (didPop, result) {
-        // Return true if a quest was completed/uncompleted to trigger refresh in parent
-        if (didPop && _questWasCompleted) {
-          Navigator.of(context).pop(true);
-        }
+        // If navigation already happened and quest was completed, we need to pass the result back
+        // This is handled by the "Back to Home" button which properly passes the result
       },
       child: Scaffold(
       body: CustomScrollView(
@@ -250,7 +267,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       Theme.of(context).colorScheme.surface,
                     ],
                   ),
@@ -275,7 +292,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -672,11 +689,18 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     final assignment = _quest!['assignment'];
     if (assignment == null) return;
 
-    try {
+    // Optimistic UI update - immediately show uncompleted state
+    if (mounted) {
       setState(() {
         _isProcessing = true;
+        // Update the quest data optimistically
+        if (_quest != null && _quest!['assignment'] != null) {
+          _quest!['assignment']['is_completed'] = false;
+        }
       });
+    }
 
+    try {
       final result = await QuestService.uncompleteQuest(
         assignment['assignment_id'],
       );
@@ -686,26 +710,30 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
           // Mark that a quest was modified for refresh purposes
           _questWasCompleted = true;
 
-          // Reload quest data to get updated status from server
-          _loadQuestDetails();
-
-          if (mounted) {
-            setState(() {
-              _isProcessing = false;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Quest unmarked successfully!'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        }
-      } else {
-        if (mounted) {
           setState(() {
             _isProcessing = false;
           });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quest unmarked successfully!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+
+          // Reload quest data in background to get updated status from server
+          _loadQuestDetails();
+        }
+      } else {
+        // Revert optimistic update on failure
+        if (mounted) {
+          setState(() {
+            if (_quest != null && _quest!['assignment'] != null) {
+              _quest!['assignment']['is_completed'] = true;
+            }
+            _isProcessing = false;
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to unmark quest. Please try again.'),
@@ -715,10 +743,15 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
         }
       }
     } catch (e) {
+      // Revert optimistic update on error
       if (mounted) {
         setState(() {
+          if (_quest != null && _quest!['assignment'] != null) {
+            _quest!['assignment']['is_completed'] = true;
+          }
           _isProcessing = false;
         });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
