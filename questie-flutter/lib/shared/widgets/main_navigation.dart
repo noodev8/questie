@@ -40,9 +40,6 @@ class MainNavigation extends StatelessWidget {
       case '/history':
         currentIndex = 3;
         break;
-      case '/settings':
-        currentIndex = 4;
-        break;
     }
 
     return Container(
@@ -89,11 +86,6 @@ class MainNavigation extends StatelessWidget {
                 activeIcon: Icon(Icons.history),
                 label: 'History',
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.settings_outlined),
-                activeIcon: Icon(Icons.settings),
-                label: 'Settings',
-              ),
             ],
             onTap: (index) {
               switch (index) {
@@ -108,9 +100,6 @@ class MainNavigation extends StatelessWidget {
                   break;
                 case 3:
                   context.go('/history');
-                  break;
-                case 4:
-                  context.go('/settings');
                   break;
               }
             },

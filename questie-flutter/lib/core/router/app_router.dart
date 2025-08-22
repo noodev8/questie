@@ -6,7 +6,6 @@ import '../../features/home/screens/home_screen.dart';
 import '../../features/quest/screens/quest_details_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/history/screens/quest_history_screen.dart';
-import '../../features/settings/screens/settings_screen.dart';
 import '../../features/badges/screens/badges_screen.dart';
 import '../../features/weekly_quests/screens/weekly_quests_screen.dart';
 import '../../shared/widgets/main_navigation.dart';
@@ -123,11 +122,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const QuestHistoryScreen(),
           ),
           GoRoute(
-            path: '/settings',
-            name: 'settings',
-            builder: (context, state) => const SettingsScreen(),
-          ),
-          GoRoute(
             path: '/badges',
             name: 'badges',
             builder: (context, state) => const BadgesScreen(),
@@ -166,11 +160,7 @@ class AppRouter {
   static void goToHistory(BuildContext context) {
     context.go('/history');
   }
-  
-  static void goToSettings(BuildContext context) {
-    context.go('/settings');
-  }
-  
+
   static void goToQuestDetails(BuildContext context, String questId) {
     context.push('/quest/$questId');
   }
