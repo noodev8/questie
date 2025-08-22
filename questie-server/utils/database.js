@@ -1520,10 +1520,118 @@ questManager.getUserCompletedQuestsCount = async function(userId) {
   return parseInt(result.rows[0].total) || 0;
 };
 
+// User data deletion utilities
+const userDeletion = {
+  // Verify that all user data has been completely deleted
+  async verifyUserDataDeleted(userId) {
+    const tables = [
+      'user_quest_completion',
+      'user_quest_assignment',
+      'user_badge',
+      'user_daily_activity',
+      'user_stats',
+      'app_user'
+    ];
+
+    const results = {};
+    let totalOrphanedRecords = 0;
+
+    for (const table of tables) {
+      try {
+        const result = await query(`SELECT COUNT(*) as count FROM ${table} WHERE user_id = $1`, [userId]);
+        const count = parseInt(result.rows[0].count);
+        results[table] = count;
+        totalOrphanedRecords += count;
+      } catch (error) {
+        results[table] = `ERROR: ${error.message}`;
+      }
+    }
+
+    // Check app_user table separately (uses id instead of user_id)
+    try {
+      const userResult = await query('SELECT COUNT(*) as count FROM app_user WHERE id = $1', [userId]);
+      const userCount = parseInt(userResult.rows[0].count);
+      results.app_user = userCount;
+      totalOrphanedRecords += userCount;
+    } catch (error) {
+      results.app_user = `ERROR: ${error.message}`;
+    }
+
+    // Check reroll log if it exists
+    try {
+      const rerollResult = await query('SELECT COUNT(*) as count FROM user_reroll_log WHERE user_id = $1', [userId]);
+      const rerollCount = parseInt(rerollResult.rows[0].count);
+      results.user_reroll_log = rerollCount;
+      totalOrphanedRecords += rerollCount;
+    } catch (error) {
+      if (error.code === '42P01') { // Table doesn't exist
+        results.user_reroll_log = 'TABLE_NOT_EXISTS';
+      } else {
+        results.user_reroll_log = `ERROR: ${error.message}`;
+      }
+    }
+
+    return {
+      tables: results,
+      totalOrphanedRecords,
+      isCompletelyDeleted: totalOrphanedRecords === 0
+    };
+  },
+
+  // Get count of all user-related records before deletion (for reporting)
+  async getUserDataSummary(userId) {
+    const summary = {};
+
+    try {
+      // Count records in each table
+      const queries = [
+        { name: 'quest_completions', query: 'SELECT COUNT(*) as count FROM user_quest_completion WHERE user_id = $1' },
+        { name: 'quest_assignments', query: 'SELECT COUNT(*) as count FROM user_quest_assignment WHERE user_id = $1' },
+        { name: 'badges', query: 'SELECT COUNT(*) as count FROM user_badge WHERE user_id = $1' },
+        { name: 'daily_activity', query: 'SELECT COUNT(*) as count FROM user_daily_activity WHERE user_id = $1' },
+        { name: 'user_stats', query: 'SELECT COUNT(*) as count FROM user_stats WHERE user_id = $1' }
+      ];
+
+      for (const queryInfo of queries) {
+        try {
+          const result = await query(queryInfo.query, [userId]);
+          summary[queryInfo.name] = parseInt(result.rows[0].count);
+        } catch (error) {
+          summary[queryInfo.name] = 0;
+        }
+      }
+
+      // Check reroll log
+      try {
+        const rerollResult = await query('SELECT COUNT(*) as count FROM user_reroll_log WHERE user_id = $1', [userId]);
+        summary.reroll_logs = parseInt(rerollResult.rows[0].count);
+      } catch (error) {
+        summary.reroll_logs = 0;
+      }
+
+      // Get user info
+      try {
+        const userResult = await query('SELECT email, display_name, created_at FROM app_user WHERE id = $1', [userId]);
+        if (userResult.rows.length > 0) {
+          summary.user_info = userResult.rows[0];
+        }
+      } catch (error) {
+        summary.user_info = null;
+      }
+
+    } catch (error) {
+      console.error('Error getting user data summary:', error);
+    }
+
+    return summary;
+  }
+};
+
 module.exports = {
   query,
   userAuth,
   questManager,
   badgeManager,
+  userDeletion,
   pool
 };

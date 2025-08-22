@@ -49,14 +49,60 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmed = await _showDeleteAccountDialog();
     if (!confirmed) return;
 
-    // TODO: Implement delete account functionality
+    // Show loading dialog
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Delete account functionality coming soon'),
-          backgroundColor: Colors.orange,
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Deleting account...'),
+            ],
+          ),
         ),
       );
+    }
+
+    try {
+      final result = await ref.read(authProvider.notifier).deleteAccount();
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+
+        if (result['success']) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Account deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Navigate to register screen
+          context.go('/register');
+        } else {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Failed to delete account'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -98,16 +144,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('This action cannot be undone. All your data will be permanently deleted.'),
+            Text(
+              '⚠️ This action cannot be undone!',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('All your data will be permanently deleted from our servers.'),
             SizedBox(height: 16),
             Text(
               'This includes:',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             SizedBox(height: 8),
-            Text('• Quest progress and history'),
-            Text('• Earned badges and achievements'),
-            Text('• Account settings and preferences'),
+            Text('• All quest assignments and completions'),
+            Text('• Badge progress and earned achievements'),
+            Text('• User statistics and streaks'),
+            Text('• Daily activity history'),
+            Text('• Account settings and profile'),
+            SizedBox(height: 16),
+            Text(
+              'Are you absolutely sure you want to delete your account?',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
           ],
         ),
         actions: [

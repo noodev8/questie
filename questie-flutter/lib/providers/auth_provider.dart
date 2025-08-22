@@ -307,6 +307,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  // Delete account
+  Future<Map<String, dynamic>> deleteAccount() async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final result = await AuthService.deleteAccount();
+
+      if (result['success']) {
+        // Clear user data cache after successful deletion
+        UserService.clearCache();
+        state = state.copyWith(
+          isLoading: false,
+          isAuthenticated: false,
+          user: null,
+          error: null,
+        );
+        return {
+          'success': true,
+          'message': result['message'],
+          'details': result['details'],
+        };
+      } else {
+        _setError(result['message'] ?? 'Account deletion failed');
+        return {
+          'success': false,
+          'message': result['message'] ?? 'Account deletion failed',
+          'return_code': result['return_code'],
+        };
+      }
+    } catch (e) {
+      _setError('Account deletion failed: ${e.toString()}');
+      return {
+        'success': false,
+        'message': 'Account deletion failed: ${e.toString()}',
+        'return_code': 'NETWORK_ERROR',
+      };
+    }
+  }
+
   // Logout
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, error: null);

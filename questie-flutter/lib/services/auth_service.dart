@@ -371,6 +371,36 @@ class AuthService {
     }
   }
 
+  // Delete account
+  static Future<Map<String, dynamic>> deleteAccount() async {
+    try {
+      final response = await _makeRequest('/delete-account', 'POST', requireAuth: true);
+      final data = _parseResponse(response);
+
+      if (data['return_code'] == 'SUCCESS') {
+        // Clear auth data after successful deletion
+        await _clearAuthData();
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Account deleted successfully',
+          'details': data['details'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Account deletion failed',
+          'return_code': data['return_code'],
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'return_code': 'NETWORK_ERROR',
+      };
+    }
+  }
+
   // Logout
   static Future<void> logout() async {
     await _clearAuthData();

@@ -10,8 +10,9 @@ const bcrypt = require('bcrypt');
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 
-const { userAuth } = require('../utils/database');
+const { userAuth, userDeletion, pool } = require('../utils/database');
 const { jwtUtils, authTokenUtils, authMiddleware } = require('../utils/tokenutils');
+const { cacheHelpers } = require('../utils/cache');
 const emailService = require('../services/emailservice');
 
 const router = express.Router();
@@ -796,6 +797,163 @@ router.post('/verify-token', authMiddleware.optionalAuth, async (req, res) => {
     res.status(500).json({
       return_code: 'SERVER_ERROR',
       message: 'Token verification failed'
+    });
+  }
+});
+
+// POST /api/auth/delete-account (protected route)
+router.post('/delete-account', authMiddleware.requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    console.log(`🗑️ Starting account deletion process for user ${userId}`);
+
+    // Get user data summary before deletion for reporting
+    const dataSummary = await userDeletion.getUserDataSummary(userId);
+    console.log(`📊 User data summary:`, dataSummary);
+
+    // Start transaction for complete data deletion
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Delete user data in correct order to avoid foreign key constraint violations
+      console.log(`📋 Deleting user data for user ${userId}...`);
+
+      const deletionResults = {};
+
+      // 1. Delete user reroll log (if table exists)
+      try {
+        const deleteRerollLogText = `
+          DELETE FROM user_reroll_log
+          WHERE user_id = $1
+        `;
+        const rerollResult = await client.query(deleteRerollLogText, [userId]);
+        deletionResults.reroll_logs = rerollResult.rowCount;
+        console.log(`✅ Deleted ${rerollResult.rowCount} reroll log entries`);
+      } catch (error) {
+        if (error.code === '42P01') { // Table doesn't exist
+          console.log(`ℹ️ user_reroll_log table doesn't exist, skipping...`);
+          deletionResults.reroll_logs = 0;
+        } else {
+          throw error;
+        }
+      }
+
+      // 2. Delete user quest completions
+      const deleteCompletionsText = `
+        DELETE FROM user_quest_completion
+        WHERE user_id = $1
+      `;
+      const completionsResult = await client.query(deleteCompletionsText, [userId]);
+      deletionResults.quest_completions = completionsResult.rowCount;
+      console.log(`✅ Deleted ${completionsResult.rowCount} quest completion records`);
+
+      // 3. Delete user quest assignments
+      const deleteAssignmentsText = `
+        DELETE FROM user_quest_assignment
+        WHERE user_id = $1
+      `;
+      const assignmentsResult = await client.query(deleteAssignmentsText, [userId]);
+      deletionResults.quest_assignments = assignmentsResult.rowCount;
+      console.log(`✅ Deleted ${assignmentsResult.rowCount} quest assignment records`);
+
+      // 4. Delete user badges
+      const deleteBadgesText = `
+        DELETE FROM user_badge
+        WHERE user_id = $1
+      `;
+      const badgesResult = await client.query(deleteBadgesText, [userId]);
+      deletionResults.badges = badgesResult.rowCount;
+      console.log(`✅ Deleted ${badgesResult.rowCount} badge records`);
+
+      // 5. Delete user daily activity
+      const deleteDailyActivityText = `
+        DELETE FROM user_daily_activity
+        WHERE user_id = $1
+      `;
+      const dailyActivityResult = await client.query(deleteDailyActivityText, [userId]);
+      deletionResults.daily_activity = dailyActivityResult.rowCount;
+      console.log(`✅ Deleted ${dailyActivityResult.rowCount} daily activity records`);
+
+      // 6. Delete user stats
+      const deleteStatsText = `
+        DELETE FROM user_stats
+        WHERE user_id = $1
+      `;
+      const statsResult = await client.query(deleteStatsText, [userId]);
+      deletionResults.user_stats = statsResult.rowCount;
+      console.log(`✅ Deleted ${statsResult.rowCount} user stats records`);
+
+      // 7. Finally, delete the user account itself
+      const deleteUserText = `
+        DELETE FROM app_user
+        WHERE id = $1
+        RETURNING email, display_name
+      `;
+      const userResult = await client.query(deleteUserText, [userId]);
+
+      if (userResult.rowCount === 0) {
+        throw new Error('User not found or already deleted');
+      }
+
+      const deletedUser = userResult.rows[0];
+      deletionResults.user_account = 1;
+      console.log(`✅ Deleted user account: ${deletedUser.email} (${deletedUser.display_name})`);
+
+      // Commit the transaction
+      await client.query('COMMIT');
+
+      // Clear user cache
+      cacheHelpers.clearUserCache(userId);
+      console.log(`📦 Cache cleared for deleted user ${userId}`);
+
+      // Verify complete deletion
+      const verificationResult = await userDeletion.verifyUserDataDeleted(userId);
+
+      if (!verificationResult.isCompletelyDeleted) {
+        console.warn(`⚠️ Warning: ${verificationResult.totalOrphanedRecords} orphaned records found after deletion`);
+        console.warn('Orphaned records:', verificationResult.tables);
+      } else {
+        console.log(`✅ Verification complete: All user data successfully deleted`);
+      }
+
+      // Calculate total records deleted
+      const totalRecordsDeleted = Object.values(deletionResults).reduce((sum, count) => sum + count, 0);
+
+      console.log(`🎯 Account deletion completed successfully. Total records deleted: ${totalRecordsDeleted}`);
+
+      res.json({
+        return_code: 'SUCCESS',
+        message: 'Account deleted successfully',
+        details: {
+          user_email: deletedUser.email,
+          user_display_name: deletedUser.display_name,
+          records_deleted: {
+            ...deletionResults,
+            total: totalRecordsDeleted
+          },
+          verification: {
+            completely_deleted: verificationResult.isCompletelyDeleted,
+            orphaned_records: verificationResult.totalOrphanedRecords
+          }
+        }
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error('Account deletion error:', error);
+    res.status(500).json({
+      return_code: 'SERVER_ERROR',
+      message: 'Account deletion failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
