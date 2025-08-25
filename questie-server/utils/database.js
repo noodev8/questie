@@ -630,6 +630,58 @@ const questManager = {
     }
   },
 
+  // Update user stats after quest uncompletion (subtract points and quest count)
+  async updateUserStatsForUncompletion(userId, pointsToDeduct) {
+    console.log(`📊 Starting updateUserStatsForUncompletion for user ${userId}, deducting ${pointsToDeduct} points`);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get current stats
+      const statsText = `
+        SELECT * FROM user_stats WHERE user_id = $1
+      `;
+      let statsResult = await client.query(statsText, [userId]);
+
+      if (statsResult.rows.length === 0) {
+        // Create initial stats if they don't exist (shouldn't happen in uncompletion, but safety check)
+        const createText = `
+          INSERT INTO user_stats (user_id, total_quests_completed, total_points, current_streak_days, longest_streak_days)
+          VALUES ($1, 0, 0, 0, 0)
+          RETURNING *
+        `;
+        statsResult = await client.query(createText, [userId]);
+      }
+
+      const currentStats = statsResult.rows[0];
+
+      // For uncompletion, we need to:
+      // 1. Subtract points
+      // 2. Decrease quest completion count
+      // 3. Keep streaks unchanged (uncompletion doesn't affect streaks)
+      // 4. Don't update last_quest_completed_at (keep the original timestamp)
+
+      // Update stats - subtract points and decrease quest count
+      const updateText = `
+        UPDATE user_stats
+        SET total_quests_completed = GREATEST(total_quests_completed - 1, 0),
+            total_points = GREATEST(total_points - $2, 0),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $1
+        RETURNING *
+      `;
+      const updateResult = await client.query(updateText, [userId, pointsToDeduct]);
+
+      await client.query('COMMIT');
+      return updateResult.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   // Complete a quest
   async completeQuest(userId, assignmentId, completionNotes = null) {
     const startTime = Date.now();
@@ -1419,7 +1471,7 @@ questManager.uncompleteQuest = async function(userId, assignmentId) {
 
       // Update user stats (subtract points and quest count)
       console.log(`🎯 Updating user stats for user ${userId} - deducting ${pointsToDeduct} points`);
-      await questManager.updateUserStats(userId, -pointsToDeduct);
+      await questManager.updateUserStatsForUncompletion(userId, pointsToDeduct);
       console.log(`✅ User stats updated successfully`);
 
       await client.query('COMMIT');
