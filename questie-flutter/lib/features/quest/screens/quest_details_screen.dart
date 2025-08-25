@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/quest_service.dart';
+import '../../../services/user_service.dart';
 import '../../../shared/widgets/quest_completion_indicator.dart';
 
 class QuestDetailsScreen extends ConsumerStatefulWidget {
@@ -175,6 +176,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   }
 
   Future<void> _refreshDataInBackground() async {
+    // Clear user stats cache to ensure fresh data
+    UserService.clearStatsCache();
+
     // Reload quest data to get updated status from server (in background)
     await _loadQuestDetails();
   }
@@ -707,6 +711,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
       if (result != null) {
         if (mounted) {
+          // Clear user stats cache to ensure fresh data
+          UserService.clearStatsCache();
+
           // Mark that a quest was modified for refresh purposes
           _questWasCompleted = true;
 

@@ -14,6 +14,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
+  int _statsRefreshKey = 0;
 
   @override
   void initState() {
@@ -31,9 +32,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Clear user stats cache to force refresh
     UserService.clearStatsCache();
 
-    // Use a more targeted refresh approach - individual quest components
-    // handle their own state updates optimistically, reducing visual disruption
-    // while ensuring data consistency. No need for full widget rebuilds.
+    // Trigger stats card refresh by updating the key
+    setState(() {
+      _statsRefreshKey++;
+    });
   }
 
   @override
@@ -168,8 +170,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Stats card
-        const QuickStatsCard(),
+        // Stats card with refresh key to trigger updates
+        QuickStatsCard(key: ValueKey('stats_$_statsRefreshKey')),
       ],
     );
   }
