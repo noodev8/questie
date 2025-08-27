@@ -58,6 +58,8 @@ android/app/*.iml
 android/app/google-services.json
 android/app/key.properties
 android/key.jks
+*.keystore
+*.jks
 **/android/app/.cxx/
 
 # Python environment
